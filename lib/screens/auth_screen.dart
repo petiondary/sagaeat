@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 
+const Color _kPrimary = Color(0xFFB45309);
+const Color _kSecondary = Color(0xFFD97706);
+
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -8,8 +11,11 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLogin = true;
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
 
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -18,7 +24,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _houseDetailsController = TextEditingController();
   final _birthDateController = TextEditingController();
 
-  // Lis 10 Depatman Ayiti
   final List<String> _departments = [
     "Artibonite",
     "Centre",
@@ -33,7 +38,6 @@ class _AuthScreenState extends State<AuthScreen> {
   ];
   String? _selectedDepartment;
 
-  // Lis Komin tès (Pita sa ka dinamik selon depatman an)
   final List<String> _communes = [
     "Carrefour",
     "Delmas",
@@ -44,235 +48,332 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _selectedCommune;
 
   @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeIn);
+    _animController.forward();
+  }
+
+  void _toggleMode() {
+    _animController.reset();
+    setState(() => _isLogin = !_isLogin);
+    _animController.forward();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 30),
-              // LOGO SAGAEAT
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.amber[100],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.fastfood, size: 75, color: Colors.amber[800]),
+      backgroundColor: const Color(0xFFFAFAF9),
+      body: Column(
+        children: [
+          // ── Header gradient ──────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              28,
+              MediaQuery.of(context).padding.top + 24,
+              28,
+              36,
+            ),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF78350F), _kPrimary, _kSecondary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 10),
-              Text(
-                "SagaEat",
-                style: TextStyle(
-                  fontSize: 35,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber[800],
-                  letterSpacing: 1.2,
-                ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(36),
+                bottomRight: Radius.circular(36),
               ),
-              Text(
-                _isLogin
-                    ? "Konekte sou kont ou kounye a"
-                    : "Enskri pou w kòmanse pase kòmand",
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-              ),
-              const SizedBox(height: 40),
-
-              if (!_isLogin) ...[
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: "Non konplè",
-                    prefixIcon: const Icon(Icons.person),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: "Email",
-                  prefixIcon: const Icon(Icons.email),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: "Nimewo Telefòn",
-                  prefixIcon: const Icon(Icons.phone),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              if (!_isLogin) ...[
-                TextField(
-                  controller: _birthDateController,
-                  decoration: InputDecoration(
-                    labelText: "Dat nesans (JJ/MM/AAAA)",
-                    prefixIcon: const Icon(Icons.cake),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Konfigirasyon Adrès (Ayiti)",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: "Depatman",
-                    prefixIcon: const Icon(Icons.map),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  value: _selectedDepartment,
-                  items: _departments.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _selectedDepartment = newValue;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: "Komin",
-                    prefixIcon: const Icon(Icons.location_city),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  value: _selectedCommune,
-                  items: _communes.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _selectedCommune = newValue;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                TextField(
-                  controller: _cityController,
-                  decoration: InputDecoration(
-                    labelText: "Vil / Zòn / Katye",
-                    prefixIcon: const Icon(Icons.nature_people),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                TextField(
-                  controller: _houseDetailsController,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText:
-                        "Detay Kay (Egz: Nimewo kay, baryè, apatman, nòt)",
-                    prefixIcon: const Icon(Icons.home),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber[800],
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HomeScreen(),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Logo
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                    );
-                  },
-                  child: Text(
-                    _isLogin ? "Konekte" : "Kreye Kont",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                      child: const Icon(
+                        Icons.fastfood,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      "SagaEat",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-
-              const SizedBox(height: 16),
-
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isLogin = !_isLogin;
-                  });
-                },
-                child: Text(
-                  _isLogin
-                      ? "Ou poko gen kont? Enskri la a"
-                      : "Ou gen kont deja? Konekte w",
-                  style: TextStyle(
-                    color: Colors.amber[900],
+                const SizedBox(height: 28),
+                Text(
+                  _isLogin ? "Bònjou, \nRetounen! 👋" : "Kreye\nKont Ou",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
+                    height: 1.2,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  _isLogin
+                      ? "Konekte pou kòmande manje ou renmen."
+                      : "Enskri pou kòmanse pase kòmand nan zòn ou.",
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
+            ),
           ),
+
+          // ── Form section ─────────────────────────────────────────
+          Expanded(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_isLogin) ...[
+                      _buildField(
+                        controller: _nameController,
+                        label: "Non konplè",
+                        icon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    _buildField(
+                      controller: _emailController,
+                      label: "Adrès Email",
+                      icon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 14),
+
+                    _buildField(
+                      controller: _phoneController,
+                      label: "Nimewo Telefòn",
+                      icon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 14),
+
+                    if (!_isLogin) ...[
+                      _buildField(
+                        controller: _birthDateController,
+                        label: "Dat nesans (JJ/MM/AAAA)",
+                        icon: Icons.cake_outlined,
+                      ),
+                      const SizedBox(height: 24),
+
+                      _buildSectionLabel("📍 Konfigirasyon Adrès (Ayiti)"),
+                      const SizedBox(height: 14),
+
+                      _buildDropdown(
+                        label: "Depatman",
+                        icon: Icons.map_outlined,
+                        value: _selectedDepartment,
+                        items: _departments,
+                        onChanged: (v) =>
+                            setState(() => _selectedDepartment = v),
+                      ),
+                      const SizedBox(height: 14),
+
+                      _buildDropdown(
+                        label: "Komin",
+                        icon: Icons.location_city_outlined,
+                        value: _selectedCommune,
+                        items: _communes,
+                        onChanged: (v) => setState(() => _selectedCommune = v),
+                      ),
+                      const SizedBox(height: 14),
+
+                      _buildField(
+                        controller: _cityController,
+                        label: "Vil / Zòn / Katye",
+                        icon: Icons.nature_people_outlined,
+                      ),
+                      const SizedBox(height: 14),
+
+                      _buildField(
+                        controller: _houseDetailsController,
+                        label: "Detay Kay (nimewo, baryè, apatman...)",
+                        icon: Icons.home_outlined,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    const SizedBox(height: 8),
+
+                    // Submit button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _kPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HomeScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          _isLogin ? "Konekte" : "Kreye Kont",
+                          style: const TextStyle(
+                            fontSize: 17,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Toggle login/register
+                    Center(
+                      child: GestureDetector(
+                        onTap: _toggleMode,
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: _isLogin
+                                    ? "Ou poko gen kont? "
+                                    : "Ou gen kont deja? ",
+                              ),
+                              TextSpan(
+                                text: _isLogin ? "Enskri la a" : "Konekte w",
+                                style: const TextStyle(
+                                  color: _kPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF1C1917),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: _kPrimary, size: 20),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _kPrimary, width: 2),
         ),
       ),
     );
   }
 
+  Widget _buildDropdown({
+    required String label,
+    required IconData icon,
+    required String? value,
+    required List<String> items,
+    required void Function(String?) onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: _kPrimary, size: 20),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _kPrimary, width: 2),
+        ),
+      ),
+      items: items
+          .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
   @override
   void dispose() {
+    _animController.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
