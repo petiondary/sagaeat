@@ -19,7 +19,7 @@ class KycScreen extends StatefulWidget {
 
 class _KycScreenState extends State<KycScreen>
     with SingleTickerProviderStateMixin {
-  int _step = 0; // 0=intro 1=personal 2=docChoice 3=docPhotos 4=selfie 5=liveness 6=success
+  int _step = 0; // 0=intro 1=personal 2=docChoice 3=docPhotos 4=selfie 5=success
 
   // Personal info
   final _nomCtrl = TextEditingController();
@@ -33,14 +33,6 @@ class _KycScreenState extends State<KycScreen>
   File? _docVerso;
   File? _selfie;
 
-  // Liveness
-  int _livenessStep = 0;
-  bool _livenessRunning = false;
-  Timer? _livenessTimer;
-  int _livenessCountdown = 3;
-  bool _livenessAllDone = false;
-  final List<File?> _livenessPhotos = List.filled(4, null);
-
   // Processing animation
   late AnimationController _spinCtrl;
 
@@ -52,6 +44,22 @@ class _KycScreenState extends State<KycScreen>
     _spinCtrl = AnimationController(
         vsync: this, duration: const Duration(seconds: 2))
       ..repeat();
+    // Recover photo if Android killed the app while camera was open
+    _recoverLostData();
+  }
+
+  Future<void> _recoverLostData() async {
+    final lost = await _picker.retrieveLostData();
+    if (lost.isEmpty || lost.file == null) return;
+    if (!mounted) return;
+    final file = File(lost.file!.path);
+    setState(() {
+      if (_step == 4) {
+        _selfie = file;
+      } else if (_step == 3) {
+        _docRecto ??= file;
+      }
+    });
   }
 
   @override
@@ -59,7 +67,6 @@ class _KycScreenState extends State<KycScreen>
     _nomCtrl.dispose();
     _prenomCtrl.dispose();
     _lieuNaissCtrl.dispose();
-    _livenessTimer?.cancel();
     _spinCtrl.dispose();
     super.dispose();
   }
@@ -167,48 +174,6 @@ class _KycScreenState extends State<KycScreen>
     setState(() => _selfie = File(picked.path));
   }
 
-  // ── Liveness ───────────────────────────────────────────────────
-
-  final _livenessInstructions = [
-    ('Gade Anlè', Icons.keyboard_arrow_up_rounded, 'Leve tèt ou dousman'),
-    ('Gade Anba', Icons.keyboard_arrow_down_rounded, 'Bese tèt ou dousman'),
-    ('Tèt Adwat', Icons.keyboard_arrow_right_rounded, 'Vire tèt ou adwat'),
-    ('Tèt Agoch', Icons.keyboard_arrow_left_rounded, 'Vire tèt ou agoch'),
-  ];
-
-  void _startLivenessStep() {
-    setState(() {
-      _livenessRunning = true;
-      _livenessCountdown = 3;
-    });
-    _livenessTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
-      if (!mounted) { t.cancel(); return; }
-      setState(() => _livenessCountdown--);
-      if (_livenessCountdown <= 0) {
-        t.cancel();
-        if (mounted) setState(() => _livenessRunning = false);
-        await _captureForStep(_livenessStep);
-      }
-    });
-  }
-
-  Future<void> _captureForStep(int step) async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 80,
-    );
-    if (!mounted) return;
-    setState(() {
-      if (picked != null) _livenessPhotos[step] = File(picked.path);
-      if (step < _livenessInstructions.length - 1) {
-        _livenessStep = step + 1;
-      } else {
-        _livenessAllDone = true;
-      }
-    });
-  }
-
   // ── Date picker ────────────────────────────────────────────────
 
   Future<void> _pickDate() async {
@@ -235,7 +200,7 @@ class _KycScreenState extends State<KycScreen>
       body: Column(
         children: [
           _buildHeader(),
-          if (_step < 6) _buildProgressBar(),
+          if (_step < 5) _buildProgressBar(),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -290,8 +255,8 @@ class _KycScreenState extends State<KycScreen>
                       fontWeight: FontWeight.bold),
                 ),
               ),
-              if (_step > 0 && _step < 6)
-                Text('$_step/5',
+              if (_step > 0 && _step < 5)
+                Text('$_step/4',
                     style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -332,8 +297,6 @@ class _KycScreenState extends State<KycScreen>
       case 4:
         return _buildSelfie();
       case 5:
-        return _buildLiveness();
-      case 6:
         return _buildSuccess();
       default:
         return const SizedBox();
@@ -926,172 +889,7 @@ class _KycScreenState extends State<KycScreen>
     );
   }
 
-  // ── Step 5: Liveness ───────────────────────────────────────────
-
-  Widget _buildLiveness() {
-    if (_livenessAllDone) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration:
-                    const BoxDecoration(color: _kLight, shape: BoxShape.circle),
-                child:
-                    const Icon(Icons.verified_user, color: _kPrimary, size: 56),
-              ),
-              const SizedBox(height: 24),
-              const Text("Tès Vitalite Reyisi!",
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: _kDark),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 10),
-              Text(
-                "Nou te detekte mouvman tèt ou ak siksè. W ap voye done yo.",
-                style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
-                    height: 1.4),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              _primaryBtn("Soumèt Verifikasyon", _next),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final instr = _livenessInstructions[_livenessStep];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-      child: Column(
-        children: [
-          _sectionTitle("Tès Vitalite"),
-          const SizedBox(height: 4),
-          Text(
-            "Swiv enstriksyon yo youn pa youn. Fè mouvman an kòrèkteman.",
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          // Progress dots
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _livenessInstructions.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: i == _livenessStep ? 20 : 8,
-                height: 8,
-                decoration: BoxDecoration(
-                    color: i < _livenessStep
-                        ? Colors.green.shade400
-                        : i == _livenessStep
-                            ? _kPrimary
-                            : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(4)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 28),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Face outline with arrow
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: _livenessRunning
-                                ? _kPrimary
-                                : Colors.grey.shade300,
-                            width: 3),
-                        color: _kLight,
-                      ),
-                      child: const Icon(Icons.face_rounded,
-                          size: 100, color: Color(0xFFD97706)),
-                    ),
-                    // Directional arrow
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 400),
-                      child: _arrowForStep(_livenessStep),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                Text(instr.$1,
-                    style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: _kDark)),
-                const SizedBox(height: 8),
-                Text(instr.$3,
-                    style: TextStyle(
-                        color: Colors.grey.shade500, fontSize: 14)),
-                if (_livenessRunning) ...[
-                  const SizedBox(height: 12),
-                  Text("$_livenessCountdown",
-                      style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: _kPrimary)),
-                  const SizedBox(height: 4),
-                  Text("Kamera ap ouvri...",
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade500)),
-                ],
-              ],
-            ),
-          ),
-          if (!_livenessRunning)
-            _primaryBtn(
-              _livenessStep == 0
-                  ? "Kòmanse — Kamera ap ouvri"
-                  : "Pwochen Mouvman — Kamera ap ouvri",
-              _startLivenessStep,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _arrowForStep(int step) {
-    final arrows = [
-      Icons.arrow_upward_rounded,
-      Icons.arrow_downward_rounded,
-      Icons.arrow_forward_rounded,
-      Icons.arrow_back_rounded,
-    ];
-    final offsets = [
-      const Offset(0, -90),
-      const Offset(0, 90),
-      const Offset(90, 0),
-      const Offset(-90, 0),
-    ];
-    return Transform.translate(
-      offset: offsets[step],
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-            color: _kPrimary, shape: BoxShape.circle),
-        child: Icon(arrows[step], color: Colors.white, size: 22),
-      ),
-    );
-  }
-
-  // ── Step 6: Success ────────────────────────────────────────────
+  // ── Step 5: Success ────────────────────────────────────────────
 
   Widget _buildSuccess() {
     Future.delayed(const Duration(seconds: 3), () {

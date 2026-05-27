@@ -111,7 +111,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Widget _buildHeader() {
     return SliverAppBar(
-      expandedHeight: 200,
+      expandedHeight: 240,
       pinned: true,
       backgroundColor: _kPrimary,
       foregroundColor: Colors.white,
@@ -133,7 +133,7 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
                 const Icon(Icons.account_balance_wallet_rounded,
                     color: Colors.white, size: 36),
                 const SizedBox(height: 8),

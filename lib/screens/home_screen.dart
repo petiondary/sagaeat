@@ -602,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Icon(Icons.location_on,
                               color: Colors.white70, size: 15),
                           const SizedBox(width: 4),
-                          const Text("Carrefour, Ayiti",
+                          const Text("Carrefour, Haiti",
                               style:
                                   TextStyle(color: Colors.white70, fontSize: 13)),
                           const Icon(Icons.keyboard_arrow_down,
@@ -2407,11 +2407,18 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF3E0), Color(0xFFFFFBF5)],
+        ),
         borderRadius: BorderRadius.circular(18),
+        border: Border(
+          left: BorderSide(color: _kPrimary, width: 4),
+        ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: const Color(0xFFB45309).withValues(alpha: 0.08),
               blurRadius: 12,
               offset: const Offset(0, 3)),
         ],
@@ -2424,9 +2431,9 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(orderId,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade500,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _kPrimary,
                       fontSize: 12,
                       letterSpacing: 0.5)),
               Container(
@@ -3262,7 +3269,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.bold,
                       color: _kDark)),
               const SizedBox(height: 4),
-              Text("Chwazi yon avata oswa paste lyen foto ou",
+              Text("Chwazi yon avata oswa pran foto nan galeri",
                   style:
                       TextStyle(color: Colors.grey.shade500, fontSize: 12)),
               const SizedBox(height: 16),
@@ -3361,51 +3368,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 16),
-              // URL input option
-              const Text("Oswa paste URL foto ou a:",
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _kDark)),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: "https://...",
-                      hintStyle: TextStyle(
-                          color: Colors.grey.shade400, fontSize: 12),
-                      prefixIcon: const Icon(Icons.link_rounded,
-                          color: _kPrimary, size: 18),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      filled: true,
-                      fillColor: _kLight,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none),
-                    ),
-                    style: const TextStyle(fontSize: 12),
-                    onSubmitted: (url) {
-                      if (url.trim().startsWith('http')) {
-                        setState(() {
-                          _profileImageUrl = url.trim();
-                          _profileImageFile = null;
-                        });
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Foto pwofil mete ajou!"),
-                            backgroundColor: Color(0xFFB45309),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ]),
             ],
           ),
         ),
