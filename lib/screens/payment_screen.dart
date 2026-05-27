@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
 import '../models/cart_service.dart';
 import '../models/wallet_service.dart';
 import '../models/address_service.dart';
 import '../models/order_service.dart';
+import '../models/security_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
 
@@ -155,6 +157,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return map;
   }
 
+  double get _dynamicSubtotal {
+    double sum = 0;
+    for (final item in CartService.items) {
+      final unitPrice = (item['unitPrice'] as num?)?.toDouble() ??
+          (item['price'] as num?)?.toDouble() ?? 0.0;
+      final suppTotal = (item['suppTotal'] as num?)?.toDouble() ?? 0.0;
+      final qty = (item['quantity'] as int?) ?? 1;
+      sum += (unitPrice + suppTotal) * qty;
+    }
+    return sum;
+  }
+
   double get _adjustedDeliveryFee {
     double total = 0;
     for (final r in _byRestaurant.keys) {
@@ -166,10 +180,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   double get _serviceFee =>
-      (widget.subtotal + _adjustedDeliveryFee) * 0.06;
+      (_dynamicSubtotal + _adjustedDeliveryFee) * 0.06;
 
   double get _total =>
-      widget.subtotal +
+      _dynamicSubtotal +
       _serviceFee +
       _adjustedDeliveryFee -
       widget.couponDiscount;
@@ -224,6 +238,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     for (final i in toRemove.reversed) {
       CartService.updateQuantity(i, 0);
+    }
+    if (CartService.items.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text(
+              "Youn nan restoran yo pa livre nan zòn sa — kòmand ou vid."),
+          backgroundColor: Colors.orange.shade700,
+          behavior: SnackBarBehavior.floating,
+        ));
+        Navigator.pop(context);
+      }
+      return;
+    }
+    setState(() {});
+  }
+
+  void _deleteItem(Map<String, dynamic> item) {
+    final idx = CartService.items.indexWhere((i) =>
+        i['name'] == item['name'] &&
+        i['restaurant'] == item['restaurant'] &&
+        i['_suppKey'] == item['_suppKey']);
+    if (idx == -1) return;
+    CartService.updateQuantity(idx, 0);
+    if (CartService.items.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Panye ou vid — retounen chwazi manje."),
+          behavior: SnackBarBehavior.floating,
+        ));
+        Navigator.pop(context);
+      }
+      return;
     }
     setState(() {});
   }
@@ -758,19 +804,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildOrderItem(Map<String, dynamic> item) {
     final isUrl = (item['image'] as String).startsWith('http');
     final qty = item['quantity'] as int;
-    final unitPrice = item['unitPrice'] as double;
+    final unitPrice = (item['unitPrice'] as num).toDouble();
+    final suppTotal = (item['suppTotal'] as num?)?.toDouble() ?? 0.0;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: isUrl
                 ? Image.network(item['image'],
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
+                    width: 52, height: 52, fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => _emojiBox("🍽️"))
                 : _emojiBox(item['image'] as String),
           ),
@@ -783,13 +829,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: _kDark)),
+                        fontWeight: FontWeight.w600, fontSize: 13, color: _kDark)),
                 const SizedBox(height: 2),
                 Text("x$qty  ×  ${unitPrice.toStringAsFixed(0)} HTG",
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 if ((item['supplements'] as List?)?.isNotEmpty == true) ...[
                   const SizedBox(height: 4),
                   Wrap(
@@ -814,12 +857,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ],
             ),
           ),
-          Text(
-            "${((unitPrice + (item['suppTotal'] as double? ?? 0.0)) * qty).toStringAsFixed(0)} HTG",
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.green.shade700)),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                "${((unitPrice + suppTotal) * qty).toStringAsFixed(0)} HTG",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.green.shade700)),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () => _deleteItem(item),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Icon(Icons.delete_outline_rounded,
+                      size: 16, color: Colors.red.shade500),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -848,7 +909,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
       child: Column(
         children: [
-          _row("Soutotal", "${widget.subtotal.toStringAsFixed(0)} HTG"),
+          _row("Soutotal", "${_dynamicSubtotal.toStringAsFixed(0)} HTG"),
           const SizedBox(height: 6),
           _row("Frè Sèvis", "${_serviceFee.toStringAsFixed(0)} HTG",
               color: Colors.grey.shade600),
@@ -1473,8 +1534,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  void _confirm(String method, Color color, {bool useWallet = false}) {
+  Future<void> _confirm(String method, Color color,
+      {bool useWallet = false}) async {
     if (!_addressValid) return;
+
+    if (SecurityService.biometricEnabled) {
+      final auth = LocalAuthentication();
+      final canAuth = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (canAuth) {
+        bool ok = false;
+        try {
+          ok = await auth.authenticate(
+            localizedReason: 'Verifye idantite w pou konfime kòmand lan',
+            options: const AuthenticationOptions(
+              biometricOnly: false,
+              stickyAuth: true,
+            ),
+          );
+        } catch (_) {
+          ok = false;
+        }
+        if (!ok) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("Otantifikasyon biometrik echwe — kòmand anile."),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
+          return;
+        }
+      }
+    }
+
+    if (!mounted) return;
     final commune = _commune ?? '';
     final pickupList = _pickupRestaurants.toList();
     final String deliveryInfo;

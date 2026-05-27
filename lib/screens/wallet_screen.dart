@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
 import '../models/wallet_service.dart';
+import '../models/kyc_service.dart';
+import '../models/security_service.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -11,29 +14,33 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   static const _kPrimary = Color(0xFFB45309);
-  static const _kDark = Color(0xFF78350F);
 
-  String _filter = 'all'; // all | deposit | purchase | refund
+  // all | deposit | purchase | refund | gift_card | transfer_in | transfer_out
+  String _filter = 'all';
   DateTime? _startDate;
   DateTime? _endDate;
-  final _amountCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _amountCtrl.dispose();
-    super.dispose();
-  }
 
   List<WalletTransaction> get _filtered {
     final all = WalletService.history;
     return all.where((t) {
       if (_filter != 'all' && t.type != _filter) return false;
       if (_startDate != null) {
-        final start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+        final start = DateTime(
+          _startDate!.year,
+          _startDate!.month,
+          _startDate!.day,
+        );
         if (t.date.isBefore(start)) return false;
       }
       if (_endDate != null) {
-        final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+        final end = DateTime(
+          _endDate!.year,
+          _endDate!.month,
+          _endDate!.day,
+          23,
+          59,
+          59,
+        );
         if (t.date.isAfter(end)) return false;
       }
       return true;
@@ -50,9 +57,9 @@ class _WalletScreenState extends State<WalletScreen> {
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: _kPrimary),
-        ),
+        data: Theme.of(
+          ctx,
+        ).copyWith(colorScheme: const ColorScheme.light(primary: _kPrimary)),
         child: child!,
       ),
     );
@@ -63,30 +70,60 @@ class _WalletScreenState extends State<WalletScreen> {
         if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
       } else {
         _endDate = picked;
-        if (_startDate != null && _startDate!.isAfter(picked)) _startDate = null;
+        if (_startDate != null && _startDate!.isAfter(picked)) {
+          _startDate = null;
+        }
       }
     });
   }
 
   void _clearDates() => setState(() {
-        _startDate = null;
-        _endDate = null;
-      });
+    _startDate = null;
+    _endDate = null;
+  });
 
   void _showDepositSheet() {
-    _amountCtrl.clear();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DepositSheet(amountCtrl: _amountCtrl),
+      builder: (_) => const _DepositSheet(),
+    );
+  }
+
+  void _showGiftCardSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GiftCardSheet(onRedeemed: () => setState(() {})),
+    );
+  }
+
+  void _showTransferSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TransferSheet(onTransferred: () => setState(() {})),
     );
   }
 
   String _formatDate(DateTime d) {
     const months = [
-      '', 'jan', 'feb', 'mas', 'avr', 'me', 'jen',
-      'jiy', 'out', 'sep', 'okt', 'nov', 'des'
+      '',
+      'jan',
+      'feb',
+      'mas',
+      'avr',
+      'me',
+      'jen',
+      'jiy',
+      'out',
+      'sep',
+      'okt',
+      'nov',
+      'des',
     ];
     final h = d.hour.toString().padLeft(2, '0');
     final m = d.minute.toString().padLeft(2, '0');
@@ -111,7 +148,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Widget _buildHeader() {
     return SliverAppBar(
-      expandedHeight: 240,
+      expandedHeight: 270,
       pinned: true,
       backgroundColor: _kPrimary,
       foregroundColor: Colors.white,
@@ -133,12 +170,17 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 16),
-                const Icon(Icons.account_balance_wallet_rounded,
-                    color: Colors.white, size: 36),
                 const SizedBox(height: 8),
-                const Text('Bous Mwen',
-                    style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Bous Mwen',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
                 const SizedBox(height: 4),
                 ValueListenableBuilder<double>(
                   valueListenable: WalletService.balanceNotifier,
@@ -146,32 +188,78 @@ class _WalletScreenState extends State<WalletScreen> {
                     '${balance.toStringAsFixed(0)} HTG',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 36,
+                      fontSize: 34,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1,
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _showDepositSheet,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Fè Depo'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: _kDark,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    elevation: 0,
-                  ),
+                const SizedBox(height: 18),
+                // 3 action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _headerBtn(
+                      icon: Icons.add_rounded,
+                      label: 'Depo',
+                      onTap: _showDepositSheet,
+                    ),
+                    const SizedBox(width: 12),
+                    _headerBtn(
+                      icon: Icons.card_giftcard_rounded,
+                      label: 'Gift Card',
+                      onTap: _showGiftCardSheet,
+                    ),
+                    const SizedBox(width: 12),
+                    _headerBtn(
+                      icon: Icons.send_rounded,
+                      label: 'Transfere',
+                      onTap: _showTransferSheet,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
       ),
-      title: const Text('Pòtmonè', style: TextStyle(fontWeight: FontWeight.w700)),
+      title: const Text(
+        'Pòtmonè',
+        style: TextStyle(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _headerBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white38),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -181,6 +269,9 @@ class _WalletScreenState extends State<WalletScreen> {
       ('deposit', 'Depo', Icons.arrow_downward_rounded),
       ('purchase', 'Acha', Icons.shopping_bag_outlined),
       ('refund', 'Ranbousman', Icons.replay_rounded),
+      ('gift_card', 'Gift Card', Icons.card_giftcard_rounded),
+      ('transfer_in', 'Resepsyon', Icons.call_received_rounded),
+      ('transfer_out', 'Ekspedisyon', Icons.call_made_rounded),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -195,8 +286,11 @@ class _WalletScreenState extends State<WalletScreen> {
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(f.$3, size: 14,
-                        color: selected ? Colors.white : _kPrimary),
+                    Icon(
+                      f.$3,
+                      size: 14,
+                      color: selected ? Colors.white : _kPrimary,
+                    ),
                     const SizedBox(width: 4),
                     Text(f.$2),
                   ],
@@ -208,7 +302,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 labelStyle: TextStyle(
                   color: selected ? Colors.white : _kPrimary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
                 side: BorderSide(color: _kPrimary.withValues(alpha: 0.3)),
                 showCheckmark: false,
@@ -261,8 +355,11 @@ class _WalletScreenState extends State<WalletScreen> {
                   color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.close_rounded,
-                    color: Colors.red, size: 18),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.red,
+                  size: 18,
+                ),
               ),
             ),
           ],
@@ -279,17 +376,25 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.receipt_long_outlined,
-                  size: 56, color: Color(0xFFD97706)),
+              Icon(
+                Icons.receipt_long_outlined,
+                size: 56,
+                color: Color(0xFFD97706),
+              ),
               SizedBox(height: 12),
-              Text('Okenn tranzaksyon',
-                  style: TextStyle(
-                      color: Color(0xFF78350F),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16)),
+              Text(
+                'Okenn tranzaksyon',
+                style: TextStyle(
+                  color: Color(0xFF78350F),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
               SizedBox(height: 4),
-              Text('Chanje filtre ou pou wè plis',
-                  style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text(
+                'Chanje filtre ou pou wè plis',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -300,16 +405,16 @@ class _WalletScreenState extends State<WalletScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (_, i) => _TransactionCard(
-            transaction: items[i],
-            formatDate: _formatDate,
-          ),
+          (_, i) =>
+              _TransactionCard(transaction: items[i], formatDate: _formatDate),
           childCount: items.length,
         ),
       ),
     );
   }
 }
+
+// ─── Date button ────────────────────────────────────────────────────────────
 
 class _DateButton extends StatelessWidget {
   final String label;
@@ -331,7 +436,9 @@ class _DateButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFB45309).withValues(alpha: 0.1) : Colors.white,
+          color: active
+              ? const Color(0xFFB45309).withValues(alpha: 0.1)
+              : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: active
@@ -361,37 +468,48 @@ class _DateButton extends StatelessWidget {
   }
 }
 
+// ─── Transaction card ───────────────────────────────────────────────────────
+
 class _TransactionCard extends StatelessWidget {
   final WalletTransaction transaction;
   final String Function(DateTime) formatDate;
 
-  const _TransactionCard({
-    required this.transaction,
-    required this.formatDate,
-  });
+  const _TransactionCard({required this.transaction, required this.formatDate});
 
   @override
   Widget build(BuildContext context) {
-    final isDeposit = transaction.type == 'deposit';
-    final isRefund = transaction.type == 'refund';
+    final type = transaction.type;
     final isPositive = transaction.amount > 0;
 
     final Color iconBg;
     final Color iconColor;
     final IconData icon;
 
-    if (isDeposit) {
-      iconBg = const Color(0xFFD1FAE5);
-      iconColor = const Color(0xFF059669);
-      icon = Icons.arrow_downward_rounded;
-    } else if (isRefund) {
-      iconBg = const Color(0xFFDBEAFE);
-      iconColor = const Color(0xFF1D4ED8);
-      icon = Icons.replay_rounded;
-    } else {
-      iconBg = const Color(0xFFFEE2E2);
-      iconColor = const Color(0xFFDC2626);
-      icon = Icons.shopping_bag_outlined;
+    switch (type) {
+      case 'deposit':
+        iconBg = const Color(0xFFD1FAE5);
+        iconColor = const Color(0xFF059669);
+        icon = Icons.arrow_downward_rounded;
+      case 'refund':
+        iconBg = const Color(0xFFDBEAFE);
+        iconColor = const Color(0xFF1D4ED8);
+        icon = Icons.replay_rounded;
+      case 'gift_card':
+        iconBg = const Color(0xFFF3E8FF);
+        iconColor = const Color(0xFF7C3AED);
+        icon = Icons.card_giftcard_rounded;
+      case 'transfer_in':
+        iconBg = const Color(0xFFCCFBF1);
+        iconColor = const Color(0xFF0D9488);
+        icon = Icons.call_received_rounded;
+      case 'transfer_out':
+        iconBg = const Color(0xFFFFF3E0);
+        iconColor = const Color(0xFFD97706);
+        icon = Icons.call_made_rounded;
+      default: // purchase
+        iconBg = const Color(0xFFFEE2E2);
+        iconColor = const Color(0xFFDC2626);
+        icon = Icons.shopping_bag_outlined;
     }
 
     return Container(
@@ -425,26 +543,64 @@ class _TransactionCard extends StatelessWidget {
                   transaction.description,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 13,
                     color: Color(0xFF1C1917),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
+                // Peer info for transfers
+                if (transaction.peer != null) ...[
+                  Row(
+                    children: [
+                      Icon(
+                        type == 'transfer_in'
+                            ? Icons.person_rounded
+                            : Icons.person_outline_rounded,
+                        size: 11,
+                        color: iconColor,
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          type == 'transfer_in'
+                              ? 'De: ${transaction.peer}'
+                              : 'Bay: ${transaction.peer}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: iconColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 2),
                 Text(
                   formatDate(transaction.date),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                const SizedBox(height: 2),
+                // Transaction ID (always shown)
+                Text(
+                  '# ${transaction.id}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey.shade400,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.2,
                   ),
                 ),
                 if (transaction.orderId != null) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
-                    '# ${transaction.orderId}',
+                    'Kòmand: ${transaction.orderId}',
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Color(0xFFB45309),
                       fontWeight: FontWeight.w500,
                     ),
@@ -459,7 +615,9 @@ class _TransactionCard extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 16,
-              color: isPositive ? const Color(0xFF059669) : const Color(0xFFDC2626),
+              color: isPositive
+                  ? const Color(0xFF059669)
+                  : const Color(0xFFDC2626),
             ),
           ),
         ],
@@ -468,10 +626,10 @@ class _TransactionCard extends StatelessWidget {
   }
 }
 
-class _DepositSheet extends StatefulWidget {
-  final TextEditingController amountCtrl;
+// ─── Deposit sheet ──────────────────────────────────────────────────────────
 
-  const _DepositSheet({required this.amountCtrl});
+class _DepositSheet extends StatefulWidget {
+  const _DepositSheet();
 
   @override
   State<_DepositSheet> createState() => _DepositSheetState();
@@ -480,15 +638,23 @@ class _DepositSheet extends StatefulWidget {
 class _DepositSheetState extends State<_DepositSheet> {
   static const _kPrimary = Color(0xFFB45309);
 
-  final _methods = [
+  final _amountCtrl = TextEditingController();
+
+  final _methods = const [
     _PayMethod('Tranzak (Kaypa)', Icons.credit_card_rounded, Color(0xFF1D4ED8)),
     _PayMethod('MonCash', Icons.phone_android_rounded, Color(0xFFDC2626)),
     _PayMethod('Natcash', Icons.account_balance_rounded, Color(0xFF1E3A8A)),
     _PayMethod('Carte Bancaire', Icons.credit_score_rounded, Color(0xFF16A34A)),
   ];
 
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
   void _submit(String method, Color color) {
-    final raw = widget.amountCtrl.text.trim();
+    final raw = _amountCtrl.text.trim();
     final amount = double.tryParse(raw.replaceAll(',', '.'));
     if (amount == null || amount < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -508,17 +674,27 @@ class _DepositSheetState extends State<_DepositSheet> {
           children: [
             Icon(Icons.info_outline_rounded, color: color),
             const SizedBox(width: 8),
-            const Text('Konfime Depo', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text(
+              'Konfime Depo',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ],
         ),
         content: RichText(
           text: TextSpan(
-            style: const TextStyle(color: Color(0xFF1C1917), fontSize: 14, height: 1.5),
+            style: const TextStyle(
+              color: Color(0xFF1C1917),
+              fontSize: 14,
+              height: 1.5,
+            ),
             children: [
               const TextSpan(text: 'W ap depoze '),
               TextSpan(
                 text: '${amount.toStringAsFixed(0)} HTG',
-                style: const TextStyle(fontWeight: FontWeight.w800, color: _kPrimary),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: _kPrimary,
+                ),
               ),
               const TextSpan(text: ' via '),
               TextSpan(
@@ -552,7 +728,8 @@ class _DepositSheetState extends State<_DepositSheet> {
               backgroundColor: color,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Konfime'),
           ),
@@ -577,67 +754,910 @@ class _DepositSheetState extends State<_DepositSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Fè Depo',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF78350F),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Chwazi montan an epi mwayen peman ou',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: widget.amountCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
-            decoration: InputDecoration(
-              labelText: 'Montan (HTG)',
-              prefixIcon: const Icon(Icons.attach_money_rounded,
-                  color: _kPrimary),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: _kPrimary, width: 2),
+            const SizedBox(height: 16),
+            const Text(
+              'Fè Depo',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF78350F),
               ),
-              labelStyle: const TextStyle(color: _kPrimary),
             ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Mwayen Peman',
-            style: TextStyle(
+            const SizedBox(height: 4),
+            const Text(
+              'Chwazi montan an epi mwayen peman ou',
+              style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _amountCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d,.]')),
+              ],
+              decoration: InputDecoration(
+                labelText: 'Montan (HTG)',
+                prefixIcon: const Icon(
+                  Icons.attach_money_rounded,
+                  color: _kPrimary,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _kPrimary, width: 2),
+                ),
+                labelStyle: const TextStyle(color: _kPrimary),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Mwayen Peman',
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF78350F),
-                fontSize: 14),
-          ),
-          const SizedBox(height: 12),
-          ...(_methods.map((m) => _MethodTile(
-                method: m,
-                onTap: () => _submit(m.name, m.color),
-              ))),
-        ],
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._methods.map(
+              (m) =>
+                  _MethodTile(method: m, onTap: () => _submit(m.name, m.color)),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+// ─── Gift card sheet ────────────────────────────────────────────────────────
+
+class _GiftCardSheet extends StatefulWidget {
+  final VoidCallback onRedeemed;
+  const _GiftCardSheet({required this.onRedeemed});
+
+  @override
+  State<_GiftCardSheet> createState() => _GiftCardSheetState();
+}
+
+class _GiftCardSheetState extends State<_GiftCardSheet>
+    with SingleTickerProviderStateMixin {
+  static const _kPrimary = Color(0xFFB45309);
+
+  int _tab = 0; // 0 = QR scan, 1 = manual
+  bool _scanning = false;
+  final _codeCtrl = TextEditingController();
+  late final AnimationController _scanAnim;
+  late final Animation<double> _scanPos;
+
+  @override
+  void initState() {
+    super.initState();
+    _scanAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _scanPos = Tween<double>(begin: 0, end: 1).animate(_scanAnim);
+  }
+
+  @override
+  void dispose() {
+    _scanAnim.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
+
+  void _simulateScan() {
+    setState(() => _scanning = true);
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
+      final codes = WalletService.validGiftCardCodes;
+      if (codes.isEmpty) {
+        setState(() => _scanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pa gen gift card valid disponib pou demo.'),
+          ),
+        );
+        return;
+      }
+      setState(() {
+        _scanning = false;
+        _codeCtrl.text = codes.first;
+        _tab = 1;
+      });
+    });
+  }
+
+  void _redeem() {
+    final code = _codeCtrl.text.trim();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Antre yon kòd gift card.')));
+      return;
+    }
+    final error = WalletService.redeemGiftCard(code);
+    if (error == 'already_used') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kòd sa a deja itilize.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    if (error == 'invalid') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Kòd gift card la pa valid. Verifye li epi eseye ankò.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    widget.onRedeemed();
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Gift card reklame avèk siksè! Balans ou mete ajou.'),
+        backgroundColor: Color(0xFF059669),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Reklame Gift Card',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF78350F),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Antre kòd ou eskanye QR gift card ou a',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+
+            // Tab switcher
+            Row(
+              children: [
+                Expanded(
+                  child: _tabBtn(
+                    icon: Icons.qr_code_scanner_rounded,
+                    label: 'Eskanye QR',
+                    selected: _tab == 0,
+                    onTap: () => setState(() => _tab = 0),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _tabBtn(
+                    icon: Icons.keyboard_rounded,
+                    label: 'Antre Kòd',
+                    selected: _tab == 1,
+                    onTap: () => setState(() => _tab = 1),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            if (_tab == 0) ...[
+              // Simulated QR scanner
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 200,
+                  color: const Color(0xFF1A1A1A),
+                  child: Stack(
+                    children: [
+                      // Corner markers
+                      ..._corners(),
+                      // Animated scan line
+                      AnimatedBuilder(
+                        animation: _scanPos,
+                        builder: (_, _) => Positioned(
+                          top: 20 + _scanPos.value * 150,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            height: 2,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  _kPrimary,
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Scan instruction
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Text(
+                            _scanning
+                                ? 'Ap chache kòd...'
+                                : 'Peze bouton pou simile eskan',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Tap to scan
+                      if (!_scanning)
+                        Align(
+                          alignment: Alignment.center,
+                          child: GestureDetector(
+                            onTap: _simulateScan,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _kPrimary,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.qr_code_scanner_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Simile Eskan',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_scanning)
+                        const Center(
+                          child: CircularProgressIndicator(color: _kPrimary),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              // Manual code entry
+              TextField(
+                controller: _codeCtrl,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  labelText: 'Kòd Gift Card',
+                  hintText: 'ex: SAGA-1000-HTG',
+                  prefixIcon: const Icon(
+                    Icons.card_giftcard_rounded,
+                    color: _kPrimary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kPrimary, width: 2),
+                  ),
+                  labelStyle: const TextStyle(color: _kPrimary),
+                  helperText:
+                      'Kòd demo: SAGA-0500-HTG • SAGA-2500-HTG • DEMO-2026-XXX',
+                  helperStyle: const TextStyle(fontSize: 10),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _tab == 0 ? null : _redeem,
+                icon: const Icon(Icons.redeem_rounded),
+                label: const Text(
+                  'Skane Gift Card',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kPrimary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade200,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabBtn({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? _kPrimary : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? Colors.white : Colors.grey.shade600,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: selected ? Colors.white : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _corners() {
+    const size = 24.0;
+    const thickness = 3.0;
+    const color = Color(0xFFB45309);
+    Widget corner({
+      required Alignment align,
+      required BorderRadius radius,
+      required bool top,
+      required bool left,
+    }) {
+      return Positioned(
+        top: top ? 16 : null,
+        bottom: top ? null : 16,
+        left: left ? 16 : null,
+        right: left ? null : 16,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            border: Border(
+              top: top
+                  ? const BorderSide(color: color, width: thickness)
+                  : BorderSide.none,
+              bottom: top
+                  ? BorderSide.none
+                  : const BorderSide(color: color, width: thickness),
+              left: left
+                  ? const BorderSide(color: color, width: thickness)
+                  : BorderSide.none,
+              right: left
+                  ? BorderSide.none
+                  : const BorderSide(color: color, width: thickness),
+            ),
+            borderRadius: radius,
+          ),
+        ),
+      );
+    }
+
+    return [
+      corner(
+        align: Alignment.topLeft,
+        radius: const BorderRadius.only(topLeft: Radius.circular(6)),
+        top: true,
+        left: true,
+      ),
+      corner(
+        align: Alignment.topRight,
+        radius: const BorderRadius.only(topRight: Radius.circular(6)),
+        top: true,
+        left: false,
+      ),
+      corner(
+        align: Alignment.bottomLeft,
+        radius: const BorderRadius.only(bottomLeft: Radius.circular(6)),
+        top: false,
+        left: true,
+      ),
+      corner(
+        align: Alignment.bottomRight,
+        radius: const BorderRadius.only(bottomRight: Radius.circular(6)),
+        top: false,
+        left: false,
+      ),
+    ];
+  }
+}
+
+// ─── Transfer sheet ─────────────────────────────────────────────────────────
+
+class _TransferSheet extends StatefulWidget {
+  final VoidCallback onTransferred;
+  const _TransferSheet({required this.onTransferred});
+
+  @override
+  State<_TransferSheet> createState() => _TransferSheetState();
+}
+
+class _TransferSheetState extends State<_TransferSheet> {
+  static const _kPrimary = Color(0xFFB45309);
+
+  final _recipientCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+  double _parsedAmount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountCtrl.addListener(() {
+      final v =
+          double.tryParse(_amountCtrl.text.trim().replaceAll(',', '.')) ?? 0;
+      if (v != _parsedAmount) setState(() => _parsedAmount = v);
+    });
+  }
+
+  @override
+  void dispose() {
+    _recipientCtrl.dispose();
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final recipient = _recipientCtrl.text.trim();
+    if (recipient.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Antre email, username, oswa ID destinatè a.'),
+        ),
+      );
+      return;
+    }
+    if (_parsedAmount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Antre yon montan valid pou transfere.')),
+      );
+      return;
+    }
+    final total = _parsedAmount + WalletService.transferFee;
+    if (WalletService.balance < total) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Fon ensifizèn. Ou bezwen ${total.toStringAsFixed(0)} HTG (${_parsedAmount.toStringAsFixed(0)} + ${WalletService.transferFee.toStringAsFixed(0)} frè).',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // KYC check
+    if (!KycService.isVerified) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          icon: Icon(Icons.gpp_maybe, color: Colors.red.shade700, size: 36),
+          title: const Text(
+            'KYC Obligatwa',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          ),
+          content: Text(
+            'Ou dwe verifye idantite w (KYC) anvan ou ka transfere lajan. Ale nan Pwofil → Verifye.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Konprann',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Biometric check
+    if (SecurityService.biometricEnabled) {
+      final auth = LocalAuthentication();
+      final canAuth =
+          await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (canAuth) {
+        bool ok = false;
+        try {
+          ok = await auth.authenticate(
+            localizedReason: 'Verifye idantite w pou konfime transfert la',
+            options: const AuthenticationOptions(
+              biometricOnly: false,
+              stickyAuth: true,
+            ),
+          );
+        } catch (_) {
+          ok = false;
+        }
+        if (!ok) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Otantifikasyon echwe — transfert anile.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    // Confirm dialog
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF3E0),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.send_rounded, color: _kPrimary, size: 30),
+        ),
+        title: const Text(
+          'Konfime Transfert',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _confirmRow('Destinatè', recipient),
+            _confirmRow('Montan', '${_parsedAmount.toStringAsFixed(0)} HTG'),
+            _confirmRow(
+              'Frè Transfert',
+              '${WalletService.transferFee.toStringAsFixed(0)} HTG',
+            ),
+            const Divider(height: 16),
+            _confirmRow(
+              'Total Dedui',
+              '${total.toStringAsFixed(0)} HTG',
+              bold: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Anile', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _kPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              WalletService.transferSend(_parsedAmount, recipient);
+              widget.onTransferred();
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${_parsedAmount.toStringAsFixed(0)} HTG voye bay $recipient!',
+                  ),
+                  backgroundColor: const Color(0xFF059669),
+                ),
+              );
+            },
+            child: const Text(
+              'Wi, Voye',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _confirmRow(String label, String value, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+              fontSize: 13,
+              color: bold ? _kPrimary : const Color(0xFF1C1917),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final total = _parsedAmount + WalletService.transferFee;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Transfere Lajan',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF78350F),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Voye lajan bay yon lòt itilizatè SagaEat',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+
+            // Recipient
+            TextField(
+              controller: _recipientCtrl,
+              decoration: InputDecoration(
+                labelText: 'Destinatè',
+                hintText: 'Email, username oswa ID',
+                prefixIcon: const Icon(
+                  Icons.person_search_rounded,
+                  color: _kPrimary,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _kPrimary, width: 2),
+                ),
+                labelStyle: const TextStyle(color: _kPrimary),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Amount
+            TextField(
+              controller: _amountCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d,.]')),
+              ],
+              decoration: InputDecoration(
+                labelText: 'Montan (HTG)',
+                prefixIcon: const Icon(
+                  Icons.attach_money_rounded,
+                  color: _kPrimary,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _kPrimary, width: 2),
+                ),
+                labelStyle: const TextStyle(color: _kPrimary),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Fee breakdown
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFFB45309).withValues(alpha: 0.2),
+                ),
+              ),
+              child: Column(
+                children: [
+                  _feeRow('Montan', _parsedAmount),
+                  const SizedBox(height: 4),
+                  _feeRow(
+                    'Frè transfert',
+                    WalletService.transferFee,
+                    note: '(frè platfòm)',
+                  ),
+                  const Divider(height: 12),
+                  _feeRow('Total dedui', total, bold: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: _send,
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: const Text(
+                  'Voye Lajan',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _kPrimary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _feeRow(
+    String label,
+    double amount, {
+    bool bold = false,
+    String? note,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            if (note != null) ...[
+              const SizedBox(width: 4),
+              Text(
+                note,
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+              ),
+            ],
+          ],
+        ),
+        Text(
+          '${amount.toStringAsFixed(0)} HTG',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+            color: bold ? const Color(0xFFB45309) : const Color(0xFF1C1917),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Shared helpers ──────────────────────────────────────────────────────────
 
 class _PayMethod {
   final String name;
@@ -686,8 +1706,11 @@ class _MethodTile extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: method.color.withValues(alpha: 0.6)),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: method.color.withValues(alpha: 0.6),
+            ),
           ],
         ),
       ),

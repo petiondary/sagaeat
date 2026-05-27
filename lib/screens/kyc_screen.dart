@@ -19,7 +19,8 @@ class KycScreen extends StatefulWidget {
 
 class _KycScreenState extends State<KycScreen>
     with SingleTickerProviderStateMixin {
-  int _step = 0; // 0=intro 1=personal 2=docChoice 3=docPhotos 4=selfie 5=success
+  int _step =
+      0; // 0=intro 1=personal 2=docChoice 3=docPhotos 4=selfie 5=success
 
   // Personal info
   final _nomCtrl = TextEditingController();
@@ -42,8 +43,9 @@ class _KycScreenState extends State<KycScreen>
   void initState() {
     super.initState();
     _spinCtrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 2))
-      ..repeat();
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
     // Recover photo if Android killed the app while camera was open
     _recoverLostData();
   }
@@ -112,20 +114,32 @@ class _KycScreenState extends State<KycScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2))),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const SizedBox(height: 16),
-            const Text("Chwazi sous foto",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text(
+              "Chwazi sous foto",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             const SizedBox(height: 16),
-            _sourceBtn(Icons.camera_alt_rounded, "Pran foto",
-                ImageSource.camera, isRecto),
+            _sourceBtn(
+              Icons.camera_alt_rounded,
+              "Pran foto",
+              ImageSource.camera,
+              isRecto,
+            ),
             const SizedBox(height: 10),
-            _sourceBtn(Icons.photo_library_rounded, "Galeri aparèy",
-                ImageSource.gallery, isRecto),
+            _sourceBtn(
+              Icons.photo_library_rounded,
+              "Galeri aparèy",
+              ImageSource.gallery,
+              isRecto,
+            ),
             const SizedBox(height: 12),
           ],
         ),
@@ -134,7 +148,11 @@ class _KycScreenState extends State<KycScreen>
   }
 
   Widget _sourceBtn(
-      IconData icon, String label, ImageSource src, bool isRecto) {
+    IconData icon,
+    String label,
+    ImageSource src,
+    bool isRecto,
+  ) {
     return GestureDetector(
       onTap: () async {
         Navigator.pop(context);
@@ -152,14 +170,24 @@ class _KycScreenState extends State<KycScreen>
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-            color: _kLight, borderRadius: BorderRadius.circular(12)),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: _kPrimary, size: 20),
-          const SizedBox(width: 10),
-          Text(label,
+          color: _kLight,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: _kPrimary, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              label,
               style: const TextStyle(
-                  fontWeight: FontWeight.w600, color: _kDark, fontSize: 14)),
-        ]),
+                fontWeight: FontWeight.w600,
+                color: _kDark,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -183,8 +211,9 @@ class _KycScreenState extends State<KycScreen>
       firstDate: DateTime(1920),
       lastDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
       builder: (ctx, child) => Theme(
-        data: Theme.of(ctx)
-            .copyWith(colorScheme: const ColorScheme.light(primary: _kPrimary)),
+        data: Theme.of(
+          ctx,
+        ).copyWith(colorScheme: const ColorScheme.light(primary: _kPrimary)),
         child: child!,
       ),
     );
@@ -220,7 +249,7 @@ class _KycScreenState extends State<KycScreen>
       'Foto Pyès',
       'Foto Vizaj',
       'Tès Vitalite',
-      'Analizyon...',
+      'Analiz...',
     ];
     return Container(
       decoration: const BoxDecoration(
@@ -242,25 +271,32 @@ class _KycScreenState extends State<KycScreen>
             children: [
               IconButton(
                 onPressed: _back,
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    color: Colors.white, size: 18),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   _step < titles.length ? titles[_step] : '',
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               if (_step > 0 && _step < 5)
-                Text('$_step/4',
-                    style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  '$_step/4',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
             ],
           ),
         ),
@@ -307,14 +343,26 @@ class _KycScreenState extends State<KycScreen>
 
   Widget _buildIntro() {
     final items = [
-      (Icons.badge_outlined, 'Pyès idantite valid',
-          'Carte identité, Permis ou Paspò'),
-      (Icons.face_retouching_natural, 'Vizaj ou',
-          'Bon limyè, san lunet nwa, pa kouvri figi'),
-      (Icons.videocam_outlined, 'Kamera ki fonksyone',
-          'Pou pran foto ak videyo liveness'),
-      (Icons.signal_wifi_4_bar, 'Koneksyon entènèt',
-          'Pou voye done yo ak sekirite'),
+      (
+        Icons.badge_outlined,
+        'Pyès idantite valid',
+        'Carte identité, Permis ou Paspò',
+      ),
+      (
+        Icons.face_retouching_natural,
+        'Vizaj ou',
+        'Bon limyè, san lunet nwa, pa kouvri figi',
+      ),
+      (
+        Icons.videocam_outlined,
+        'Kamera ki fonksyone',
+        'Pou pran foto ak videyo liveness',
+      ),
+      (
+        Icons.signal_wifi_4_bar,
+        'Koneksyon entènèt',
+        'Pou voye done yo ak sekirite',
+      ),
     ];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -324,61 +372,88 @@ class _KycScreenState extends State<KycScreen>
           Center(
             child: Container(
               padding: const EdgeInsets.all(24),
-              decoration:
-                  const BoxDecoration(color: _kLight, shape: BoxShape.circle),
-              child: const Icon(Icons.shield_outlined,
-                  size: 56, color: _kPrimary),
+              decoration: const BoxDecoration(
+                color: _kLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.shield_outlined,
+                size: 56,
+                color: _kPrimary,
+              ),
             ),
           ),
           const SizedBox(height: 20),
-          const Text("Pou kisa nou bezwen KYC?",
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: _kDark)),
+          const Text(
+            "Pou kisa nou bezwen KYC?",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _kDark,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             "Pou rezon sekirite ak prevansyon fwod, nou dwe verifye idantite ou "
             "anvan ou kapab pase kòmand. Pwosesis la pran 2-3 minit.",
             style: TextStyle(
-                color: Colors.grey.shade600, fontSize: 14, height: 1.5),
+              color: Colors.grey.shade600,
+              fontSize: 14,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 24),
-          const Text("Sa ou bezwen:",
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: _kDark)),
+          const Text(
+            "Sa ou bezwen:",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: _kDark,
+            ),
+          ),
           const SizedBox(height: 12),
-          ...items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                          color: _kLight, shape: BoxShape.circle),
-                      child: Icon(item.$1, color: _kPrimary, size: 20),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: _kLight,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.$2,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: _kDark)),
-                          const SizedBox(height: 2),
-                          Text(item.$3,
-                              style: TextStyle(
-                                  color: Colors.grey.shade500, fontSize: 12)),
-                        ],
-                      ),
+                    child: Icon(item.$1, color: _kPrimary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.$2,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: _kDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.$3,
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 28),
           _primaryBtn("Kòmanse Verifikasyon", _next),
         ],
@@ -392,8 +467,8 @@ class _KycScreenState extends State<KycScreen>
     final dateStr = _dateNaissance == null
         ? null
         : '${_dateNaissance!.day.toString().padLeft(2, '0')}/'
-            '${_dateNaissance!.month.toString().padLeft(2, '0')}/'
-            '${_dateNaissance!.year}';
+              '${_dateNaissance!.month.toString().padLeft(2, '0')}/'
+              '${_dateNaissance!.year}';
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       child: Column(
@@ -406,54 +481,58 @@ class _KycScreenState extends State<KycScreen>
             style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
           ),
           const SizedBox(height: 20),
-          _field("Nom (Siyati)", "BAPTISTE", _nomCtrl,
-              icon: Icons.person_outline),
+          _field(
+            "Nom (Siyati)",
+            "BAPTISTE",
+            _nomCtrl,
+            icon: Icons.person_outline,
+          ),
           const SizedBox(height: 14),
-          _field("Prenon", "Jean", _prenomCtrl,
-              icon: Icons.person_outline),
+          _field("Prenon", "Jean", _prenomCtrl, icon: Icons.person_outline),
           const SizedBox(height: 14),
           GestureDetector(
             onTap: _pickDate,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: _dateNaissance != null
-                        ? _kPrimary
-                        : Colors.grey.shade300),
+                  color: _dateNaissance != null
+                      ? _kPrimary
+                      : Colors.grey.shade300,
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 18,
-                      color: _dateNaissance != null
-                          ? _kPrimary
-                          : Colors.grey.shade400),
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 18,
+                    color: _dateNaissance != null
+                        ? _kPrimary
+                        : Colors.grey.shade400,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     dateStr ?? "Dat Nesans (jj/mm/aaaa)",
                     style: TextStyle(
-                        fontSize: 14,
-                        color: dateStr != null
-                            ? _kDark
-                            : Colors.grey.shade400),
+                      fontSize: 14,
+                      color: dateStr != null ? _kDark : Colors.grey.shade400,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 14),
-          _field("Kote ou Fèt (Komin / Vil)", "Carrefour, Ouest",
-              _lieuNaissCtrl,
-              icon: Icons.location_city_outlined),
-          const SizedBox(height: 28),
-          _primaryBtn(
-            "Kontinye",
-            _personalValid ? _next : null,
+          _field(
+            "Kote ou Fèt (Komin / Vil)",
+            "Carrefour, Ouest",
+            _lieuNaissCtrl,
+            icon: Icons.location_city_outlined,
           ),
+          const SizedBox(height: 28),
+          _primaryBtn("Kontinye", _personalValid ? _next : null),
         ],
       ),
     );
@@ -519,36 +598,45 @@ class _KycScreenState extends State<KycScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: selected
-                            ? _kPrimary
-                            : Colors.grey.shade100,
+                        color: selected ? _kPrimary : Colors.grey.shade100,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(doc.$4,
-                          color:
-                              selected ? Colors.white : Colors.grey.shade500,
-                          size: 22),
+                      child: Icon(
+                        doc.$4,
+                        color: selected ? Colors.white : Colors.grey.shade500,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(doc.$2,
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: selected ? _kPrimary : _kDark)),
+                          Text(
+                            doc.$2,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: selected ? _kPrimary : _kDark,
+                            ),
+                          ),
                           const SizedBox(height: 3),
-                          Text(doc.$3,
-                              style: TextStyle(
-                                  color: Colors.grey.shade500, fontSize: 12)),
+                          Text(
+                            doc.$3,
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     if (selected)
-                      const Icon(Icons.check_circle_rounded,
-                          color: _kPrimary, size: 22),
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: _kPrimary,
+                        size: 22,
+                      ),
                   ],
                 ),
               ),
@@ -570,11 +658,13 @@ class _KycScreenState extends State<KycScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle(_docType == _DocType.carteIdentite
-              ? "Foto Carte Identité"
-              : _docType == _DocType.permis
-                  ? "Foto Permis de Conduire"
-                  : "Foto Paspò"),
+          _sectionTitle(
+            _docType == _DocType.carteIdentite
+                ? "Foto Carte Identité"
+                : _docType == _DocType.permis
+                ? "Foto Permis de Conduire"
+                : "Foto Paspò",
+          ),
           const SizedBox(height: 12),
           _qualityTips(),
           const SizedBox(height: 20),
@@ -618,29 +708,45 @@ class _KycScreenState extends State<KycScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.info_outline_rounded,
-                color: Colors.blue.shade700, size: 16),
-            const SizedBox(width: 6),
-            Text("Konsèy pou bon foto",
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: Colors.blue.shade700,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                "Konsèy pou bon foto",
                 style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade800,
-                    fontSize: 13)),
-          ]),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
-          ...tips.map((t) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
+          ...tips.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
                   Icon(t.$1, size: 14, color: Colors.blue.shade600),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(t.$2,
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.blue.shade800)),
+                    child: Text(
+                      t.$2,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade800,
+                      ),
+                    ),
                   ),
-                ]),
-              )),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -671,10 +777,12 @@ class _KycScreenState extends State<KycScreen>
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.file(file,
-                        width: double.infinity,
-                        height: 180,
-                        fit: BoxFit.cover),
+                    child: Image.file(
+                      file,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   Positioned(
                     top: 8,
@@ -682,9 +790,14 @@ class _KycScreenState extends State<KycScreen>
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: const BoxDecoration(
-                          color: _kPrimary, shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded,
-                          color: Colors.white, size: 14),
+                        color: _kPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -694,13 +807,17 @@ class _KycScreenState extends State<KycScreen>
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(8)),
-                        child: const Text("Tape pou chanje",
-                            style: TextStyle(
-                                color: Colors.white, fontSize: 11)),
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          "Tape pou chanje",
+                          style: TextStyle(color: Colors.white, fontSize: 11),
+                        ),
                       ),
                     ),
                   ),
@@ -712,20 +829,29 @@ class _KycScreenState extends State<KycScreen>
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: const BoxDecoration(
-                        color: _kLight, shape: BoxShape.circle),
-                    child: const Icon(Icons.add_a_photo_rounded,
-                        color: _kPrimary, size: 28),
+                      color: _kLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add_a_photo_rounded,
+                      color: _kPrimary,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(height: 10),
-                  Text(label,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: _kDark)),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: _kDark,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(subtitle,
-                      style: TextStyle(
-                          color: Colors.grey.shade400, fontSize: 12)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  ),
                 ],
               ),
       ),
@@ -742,9 +868,10 @@ class _KycScreenState extends State<KycScreen>
         children: [
           _sectionTitle("Foto Vizaj ou"),
           const SizedBox(height: 4),
-          Text("Foto sa a ap konpare avèk foto sou pyès idantite ou a.",
-              style:
-                  TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+          Text(
+            "Foto sa a ap konpare avèk foto sou pyès idantite ou a.",
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+          ),
           const SizedBox(height: 16),
           _selfieTips(),
           const SizedBox(height: 20),
@@ -757,8 +884,7 @@ class _KycScreenState extends State<KycScreen>
                 color: _selfie != null ? Colors.transparent : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color:
-                      _selfie != null ? _kPrimary : Colors.grey.shade300,
+                  color: _selfie != null ? _kPrimary : Colors.grey.shade300,
                   width: _selfie != null ? 2 : 1.5,
                 ),
               ),
@@ -767,10 +893,12 @@ class _KycScreenState extends State<KycScreen>
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(14),
-                          child: Image.file(_selfie!,
-                              width: double.infinity,
-                              height: 260,
-                              fit: BoxFit.cover),
+                          child: Image.file(
+                            _selfie!,
+                            width: double.infinity,
+                            height: 260,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                         Positioned(
                           top: 8,
@@ -778,10 +906,14 @@ class _KycScreenState extends State<KycScreen>
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: const BoxDecoration(
-                                color: _kPrimary,
-                                shape: BoxShape.circle),
-                            child: const Icon(Icons.check_rounded,
-                                color: Colors.white, size: 14),
+                              color: _kPrimary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -791,15 +923,20 @@ class _KycScreenState extends State<KycScreen>
                           child: Center(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius:
-                                      BorderRadius.circular(8)),
-                              child: const Text("Tape pou chanje",
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11)),
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                "Tape pou chanje",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -811,26 +948,37 @@ class _KycScreenState extends State<KycScreen>
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                              color: _kLight,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: _kPrimary.withValues(alpha: 0.3),
-                                  width: 2,
-                                  style: BorderStyle.solid)),
-                          child: const Icon(Icons.face_retouching_natural,
-                              color: _kPrimary, size: 40),
+                            color: _kLight,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _kPrimary.withValues(alpha: 0.3),
+                              width: 2,
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.face_retouching_natural,
+                            color: _kPrimary,
+                            size: 40,
+                          ),
                         ),
                         const SizedBox(height: 14),
-                        const Text("Tape pou pran selfie",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: _kDark)),
+                        const Text(
+                          "Tape pou pran selfie",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: _kDark,
+                          ),
+                        ),
                         const SizedBox(height: 6),
-                        Text("Kamera devan rekòmande",
-                            style: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontSize: 12)),
+                        Text(
+                          "Kamera devan rekòmande",
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
             ),
@@ -860,30 +1008,45 @@ class _KycScreenState extends State<KycScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.tips_and_updates_outlined,
-                color: Colors.green.shade700, size: 16),
-            const SizedBox(width: 6),
-            Text("Konsèy pou bon selfie",
+          Row(
+            children: [
+              Icon(
+                Icons.tips_and_updates_outlined,
+                color: Colors.green.shade700,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                "Konsèy pou bon selfie",
                 style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade800,
-                    fontSize: 13)),
-          ]),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green.shade800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
-          ...tips.map((t) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(children: [
+          ...tips.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
                   Icon(t.$1, size: 14, color: Colors.green.shade600),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(t.$2,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green.shade800)),
+                    child: Text(
+                      t.$2,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
                   ),
-                ]),
-              )),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -909,25 +1072,34 @@ class _KycScreenState extends State<KycScreen>
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
-                    color: _kLight, shape: BoxShape.circle),
-                child: const Icon(Icons.hourglass_top_rounded,
-                    color: _kPrimary, size: 48),
+                  color: _kLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.hourglass_top_rounded,
+                  color: _kPrimary,
+                  size: 48,
+                ),
               ),
             ),
             const SizedBox(height: 28),
-            const Text("Analizyon Done yo...",
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: _kDark),
-                textAlign: TextAlign.center),
+            const Text(
+              "Analizy Done yo...",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: _kDark,
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 12),
             Text(
               "Nou ap verifye tout enfòmasyon ou yo. Sa pran kèk segonn.",
               style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 14,
-                  height: 1.5),
+                color: Colors.grey.shade500,
+                fontSize: 14,
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -945,12 +1117,21 @@ class _KycScreenState extends State<KycScreen>
 
   // ── Shared helpers ─────────────────────────────────────────────
 
-  Widget _sectionTitle(String title) => Text(title,
-      style: const TextStyle(
-          fontSize: 17, fontWeight: FontWeight.bold, color: _kDark));
+  Widget _sectionTitle(String title) => Text(
+    title,
+    style: const TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.bold,
+      color: _kDark,
+    ),
+  );
 
-  Widget _field(String label, String hint, TextEditingController ctrl,
-      {required IconData icon}) {
+  Widget _field(
+    String label,
+    String hint,
+    TextEditingController ctrl, {
+    required IconData icon,
+  }) {
     return TextField(
       controller: ctrl,
       onChanged: (_) => setState(() {}),
@@ -958,19 +1139,24 @@ class _KycScreenState extends State<KycScreen>
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon, size: 18, color: _kPrimary),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         filled: true,
         fillColor: Colors.white,
-        border:
-            OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade200)),
-        enabledBorder:
-            OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade200)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
         focusedBorder: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
-            borderSide: BorderSide(color: _kPrimary, width: 2)),
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          borderSide: BorderSide(color: _kPrimary, width: 2),
+        ),
         labelStyle: const TextStyle(color: _kPrimary),
       ),
     );
@@ -985,15 +1171,19 @@ class _KycScreenState extends State<KycScreen>
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled ? _kPrimary : Colors.grey.shade300,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 0,
         ),
         onPressed: onTap,
-        child: Text(label,
-            style: TextStyle(
-                color: enabled ? Colors.white : Colors.grey.shade500,
-                fontWeight: FontWeight.bold,
-                fontSize: 15)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: enabled ? Colors.white : Colors.grey.shade500,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
       ),
     );
   }

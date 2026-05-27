@@ -14,7 +14,9 @@ import '../models/order_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
 import '../models/kyc_service.dart';
+import '../models/security_service.dart';
 import 'kyc_screen.dart';
+import 'auth_screen.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
 const Color _kSecondary = Color(0xFFD97706);
@@ -76,6 +78,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── History filters ────────────────────────────────────────────
   String _historyStatusFilter = 'all';
+
+  // ── Search commune filter ──────────────────────────────────────
+  bool _communeFilterActive = false;
 
   // Cache for OrderRecord → Map conversions (keeps mutations alive)
   final Map<String, Map<String, dynamic>> _orderMapCache = {};
@@ -1345,8 +1350,18 @@ class _HomeScreenState extends State<HomeScreen> {
           }).toList()
         : <Map<String, dynamic>>[];
 
+    final userCommune = AddressService.addresses.isNotEmpty
+        ? AddressService.addresses.first.commune
+        : null;
+
     final matchedRestaurants = hasQuery
         ? nearbyRestaurants.where((r) {
+            if (_communeFilterActive && userCommune != null) {
+              final info = findRestaurant(r['name'] as String);
+              if (info != null &&
+                  info.commune != userCommune &&
+                  !info.deliveryZones.contains(userCommune)) { return false; }
+            }
             return (r['name'] as String).toLowerCase().contains(q) ||
                 (r['address'] as String).toLowerCase().contains(q) ||
                 (r['dishes'] as List).any(
@@ -1410,6 +1425,51 @@ class _HomeScreenState extends State<HomeScreen> {
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => setState(
+                        () => _communeFilterActive = !_communeFilterActive),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _communeFilterActive
+                            ? Colors.white
+                            : Colors.white24,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: _communeFilterActive
+                                ? Colors.transparent
+                                : Colors.white38),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.my_location_rounded,
+                              size: 14,
+                              color: _communeFilterActive
+                                  ? _kPrimary
+                                  : Colors.white70),
+                          const SizedBox(width: 6),
+                          Text(
+                            "Komin mwen an sèlman",
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _communeFilterActive
+                                    ? _kPrimary
+                                    : Colors.white70),
+                          ),
+                          if (_communeFilterActive) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.close_rounded,
+                                size: 12, color: _kPrimary),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -2539,20 +2599,55 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
           if (status == 'En préparation') ...[
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.qr_code_rounded, size: 16),
-                label: const Text("Wè QR Code manje a"),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade600,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 10)),
-                onPressed: () => _showQrDialog(orderId),
+            if (mode == 'pickup')
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.qr_code_rounded, size: 15),
+                      label: const Text("QR Code"),
+                      style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange.shade600,
+                          side: BorderSide(color: Colors.orange.shade300),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10)),
+                      onPressed: () => _showQrDialog(orderId),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text("Konfime Pickup"),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10)),
+                      onPressed: () => _confirmReceiptOrder(tx),
+                    ),
+                  ),
+                ],
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.qr_code_rounded, size: 16),
+                  label: const Text("Wè QR Code manje a"),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade600,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 10)),
+                  onPressed: () => _showQrDialog(orderId),
+                ),
               ),
-            ),
           ],
           if (status == 'En livraison') ...[
             const SizedBox(height: 12),
@@ -2793,6 +2888,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildProfileField(
                     "Email", Icons.email_outlined, '',
                     keyboardType: TextInputType.emailAddress,
+                    readOnly: true,
                     controller: _emailCtrl),
                 const SizedBox(height: 24),
                 _buildFoodPrefsSection(),
@@ -3452,10 +3548,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProfileField(String label, IconData icon, String value,
       {bool disabled = false,
+      bool readOnly = false,
       TextInputType? keyboardType,
       TextEditingController? controller}) {
     return TextField(
       enabled: !disabled,
+      readOnly: readOnly,
       keyboardType: keyboardType,
       controller: controller ?? TextEditingController(text: value),
       decoration: InputDecoration(
@@ -3524,24 +3622,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   activeThumbColor: _kPrimary,
                   onChanged: (_) {}),
             ),
-            _buildSettingsTile(
-              icon: Icons.language_outlined,
-              iconBg: Colors.purple.shade50,
-              iconColor: Colors.purple.shade600,
-              title: "Lang Aplikasyon an",
-              subtitle: "Kreyòl Ayisyen",
-              trailing:
-                  const Icon(Icons.chevron_right, color: Colors.grey),
-            ),
-            _buildSettingsTile(
-              icon: Icons.dark_mode_outlined,
-              iconBg: Colors.grey.shade100,
-              iconColor: Colors.grey.shade700,
-              title: "Mòd Koulè",
-              subtitle: "Klè (Light mode)",
-              trailing:
-                  const Icon(Icons.chevron_right, color: Colors.grey),
-            ),
           ]),
           const SizedBox(height: 8),
           _buildSettingsGroup("Kont & Sekirite", [
@@ -3550,9 +3630,10 @@ class _HomeScreenState extends State<HomeScreen> {
               iconBg: _kLight,
               iconColor: _kPrimary,
               title: "Sekirite",
-              subtitle: "Chanje modpas, 2FA...",
+              subtitle: "Biometri, chanje modpas...",
               trailing:
                   const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: _showSecuritySheet,
             ),
             _buildSettingsTile(
               icon: Icons.help_outline,
@@ -3570,13 +3651,409 @@ class _HomeScreenState extends State<HomeScreen> {
               title: "Dekonekte",
               titleColor: Colors.red.shade700,
               trailing: const SizedBox.shrink(),
-              onTap: () {},
+              onTap: _showLogoutDialog,
             ),
           ]),
           const SizedBox(height: 30),
         ],
       ),
     );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration:
+              BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
+          child:
+              Icon(Icons.exit_to_app, color: Colors.red.shade700, size: 32),
+        ),
+        title: const Text("Dekonekte?",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        content: Text(
+          "Ou sèten ou vle dekonekte kont ou a?",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Anile",
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10))),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+                (_) => false,
+              );
+            },
+            child: const Text("Wi, Dekonekte",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSecuritySheet() {
+    int step = 0;
+    String generatedOtp = '';
+    final otpCtrl = TextEditingController();
+    final newPwCtrl = TextEditingController();
+    final confirmPwCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bsCtx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          final handle = Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+          );
+
+          if (step == 0) {
+            return Container(
+              padding: EdgeInsets.fromLTRB(
+                  20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 28),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  handle,
+                  const SizedBox(height: 16),
+                  const Text("Sekirite",
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: _kDark)),
+                  const SizedBox(height: 20),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: SecurityService.biometricNotifier,
+                    builder: (_, val, _) => SwitchListTile(
+                      value: val,
+                      onChanged: SecurityService.setBiometric,
+                      activeColor: _kPrimary,
+                      secondary: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                            color: _kLight,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.fingerprint,
+                            color: _kPrimary, size: 22),
+                      ),
+                      title: const Text("Biometri pou Pèman",
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14)),
+                      subtitle: Text(
+                          "Mandé emprènte osinon PIN pou konfime chak kòmand",
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade500)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Icon(Icons.lock_reset_outlined,
+                          color: Colors.blue.shade600, size: 22),
+                    ),
+                    title: const Text("Chanje Modpas",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    subtitle: Text(
+                        "Nou ap voye yon OTP bay email ou",
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500)),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Colors.grey),
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () => setModal(() => step = 1),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Password change flow (steps 1-3)
+          return Padding(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () =>
+                            setModal(() => step = step > 1 ? step - 1 : 0),
+                        child: const Icon(Icons.arrow_back_ios_new,
+                            size: 18, color: _kDark),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        step == 1
+                            ? "Voye OTP"
+                            : step == 2
+                                ? "Verifye OTP"
+                                : "Nouvo Modpas",
+                        style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: _kDark),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (step == 1) ...[
+                    Text(
+                        "N ap voye yon kòd OTP bay adres email sa a:",
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 13)),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: _kLight,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.email_outlined,
+                              color: _kPrimary, size: 18),
+                          const SizedBox(width: 10),
+                          Text(_emailCtrl.text,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: _kDark)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: _kPrimary,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14))),
+                        onPressed: () {
+                          generatedOtp =
+                              (100000 + DateTime.now().millisecondsSinceEpoch % 900000)
+                                  .toString();
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("OTP: $generatedOtp (demo)"),
+                            duration: const Duration(seconds: 10),
+                          ));
+                          setModal(() => step = 2);
+                        },
+                        child: const Text("Voye OTP",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15)),
+                      ),
+                    ),
+                  ] else if (step == 2) ...[
+                    Text(
+                        "Antre kòd OTP 6 chif ki te voye bay email ou a.",
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 13)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: otpCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8),
+                      decoration: InputDecoration(
+                        hintText: "------",
+                        counterText: "",
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200)),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200)),
+                        focusedBorder: const OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(12)),
+                            borderSide:
+                                BorderSide(color: _kPrimary, width: 2)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: _kPrimary,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14))),
+                        onPressed: () {
+                          if (otpCtrl.text.trim() == generatedOtp) {
+                            setModal(() => step = 3);
+                          } else {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(
+                              content: Text("Kòd OTP a enkòrèk."),
+                              backgroundColor: Colors.red,
+                            ));
+                          }
+                        },
+                        child: const Text("Verifye OTP",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15)),
+                      ),
+                    ),
+                  ] else if (step == 3) ...[
+                    TextField(
+                      controller: newPwCtrl,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: "Nouvo Modpas",
+                        prefixIcon:
+                            const Icon(Icons.lock_outline, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200)),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200)),
+                        focusedBorder: const OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(12)),
+                            borderSide:
+                                BorderSide(color: _kPrimary, width: 2)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: confirmPwCtrl,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: "Konfime Nouvo Modpas",
+                        prefixIcon:
+                            const Icon(Icons.lock_outline, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200)),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                BorderSide(color: Colors.grey.shade200)),
+                        focusedBorder: const OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(12)),
+                            borderSide:
+                                BorderSide(color: _kPrimary, width: 2)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: _kPrimary,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14))),
+                        onPressed: () {
+                          if (newPwCtrl.text.trim().length < 6) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(
+                              content: Text(
+                                  "Modpas dwe gen omwen 6 karaktè."),
+                            ));
+                            return;
+                          }
+                          if (newPwCtrl.text != confirmPwCtrl.text) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(
+                              content: Text("Modpas yo pa matche."),
+                            ));
+                            return;
+                          }
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
+                            content: Text("Modpas chanje avèk siksè!"),
+                            backgroundColor: Colors.green,
+                          ));
+                        },
+                        child: const Text("Chanje Modpas",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(() {
+      otpCtrl.dispose();
+      newPwCtrl.dispose();
+      confirmPwCtrl.dispose();
+    });
   }
 
   Widget _buildSettingsGroup(String title, List<Widget> tiles) {
