@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/cart_service.dart';
+import '../data/restaurant_data.dart';
+import 'restaurant_detail_screen.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
 const Color _kDark = Color(0xFF1C1917);
@@ -179,23 +181,44 @@ class _ProductDescriptionScreenState extends State<ProductDescriptionScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.storefront_outlined,
-                            size: 15,
-                            color: _kPrimary,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            widget.product["restaurant"] ?? "Restoran SagaEat",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: _kPrimary,
-                              fontWeight: FontWeight.w600,
+                      GestureDetector(
+                        onTap: () {
+                          final restaurantName =
+                              widget.product["restaurant"] as String?;
+                          if (restaurantName == null) return;
+                          final info = findRestaurant(restaurantName);
+                          if (info == null) return;
+                          final menuItems = <Map<String, dynamic>>[];
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RestaurantDetailScreen(
+                                restaurant: info,
+                                menuItems: menuItems,
+                              ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.storefront_outlined,
+                              size: 15,
+                              color: _kPrimary,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              widget.product["restaurant"] ?? "Restoran SagaEat",
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: _kPrimary,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                                decorationColor: _kPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
 
@@ -568,10 +591,18 @@ class _ProductDescriptionScreenState extends State<ProductDescriptionScreen> {
                         elevation: 0,
                       ),
                       onPressed: () {
+                        final selectedSupps = _accompaniments
+                            .where((a) => a['selected'] == true)
+                            .map((a) => {
+                                  'name': a['name'] as String,
+                                  'price': a['price'] as double,
+                                })
+                            .toList();
                         CartService.add(
                           widget.product,
                           _quantity,
                           _totalPrice,
+                          supplements: selectedSupps,
                         );
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

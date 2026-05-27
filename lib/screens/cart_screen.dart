@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/cart_service.dart';
+import '../data/restaurant_data.dart';
 import 'payment_screen.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
@@ -14,8 +15,21 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  static const double _deliveryFee = 150.0;
   static const double _serviceFeeRate = 0.06;
+
+  // Delivery fee = sum of each unique restaurant's fee (all assumed delivery here)
+  double get _deliveryFee {
+    final seen = <String>{};
+    double total = 0;
+    for (final item in CartService.items) {
+      final r = item['restaurant'] as String;
+      if (seen.contains(r)) continue;
+      seen.add(r);
+      final info = findRestaurant(r);
+      total += info?.deliveryFee ?? 150.0;
+    }
+    return total;
+  }
 
   // Coupon
   final _couponCtrl = TextEditingController();
@@ -270,11 +284,34 @@ class _CartScreenState extends State<CartScreen> {
                         color: _kPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w500)),
+                if ((item['supplements'] as List?)?.isNotEmpty == true) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 3,
+                    children: (item['supplements'] as List)
+                        .map((s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                  color: _kLight,
+                                  borderRadius: BorderRadius.circular(6)),
+                              child: Text(
+                                '+ ${s['name']}',
+                                style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _kPrimary,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("${(unitPrice * qty).toStringAsFixed(0)} HTG",
+                    Text("${((unitPrice + (item['suppTotal'] as double? ?? 0.0)) * qty).toStringAsFixed(0)} HTG",
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -344,7 +381,7 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildOrderSummary(double subtotal) {
-    final serviceFee = subtotal * _serviceFeeRate;
+    final serviceFee = (subtotal + _deliveryFee) * _serviceFeeRate;
     final total =
         (subtotal + serviceFee + _deliveryFee - _couponDiscount)
             .clamp(0.0, double.infinity);
@@ -469,9 +506,7 @@ class _CartScreenState extends State<CartScreen> {
               "${serviceFee.toStringAsFixed(0)} HTG",
               color: Colors.grey.shade600),
           const SizedBox(height: 6),
-          _row("Frè Livrezon",
-              "${_deliveryFee.toStringAsFixed(0)} HTG",
-              color: Colors.grey.shade600),
+          ..._buildDeliveryFeeRows(),
           if (_couponApplied) ...[
             const SizedBox(height: 6),
             _row("Koupon ($_appliedCode)",
@@ -529,5 +564,24 @@ class _CartScreenState extends State<CartScreen> {
     return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [Text(label, style: s), Text(value, style: s)]);
+  }
+
+  List<Widget> _buildDeliveryFeeRows() {
+    final seen = <String>{};
+    final rows = <Widget>[];
+    for (final item in CartService.items) {
+      final r = item['restaurant'] as String;
+      if (seen.contains(r)) continue;
+      seen.add(r);
+      final info = findRestaurant(r);
+      final fee = info?.deliveryFee ?? 150.0;
+      rows.add(_row(
+        'Livrezon · $r',
+        '${fee.toStringAsFixed(0)} HTG',
+        color: Colors.grey.shade600,
+      ));
+      rows.add(const SizedBox(height: 4));
+    }
+    return rows;
   }
 }

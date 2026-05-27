@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'product_description_screen.dart';
 import 'cart_screen.dart';
 import 'wallet_screen.dart';
@@ -8,8 +10,11 @@ import 'restaurant_detail_screen.dart';
 import '../models/cart_service.dart';
 import '../models/wallet_service.dart';
 import '../models/address_service.dart';
+import '../models/order_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
+import '../models/kyc_service.dart';
+import 'kyc_screen.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
 const Color _kSecondary = Color(0xFFD97706);
@@ -26,8 +31,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _isAccountVerified = false;
-
   // ── Categories ─────────────────────────────────────────────────
   int _selectedCategory = 0;
   final List<Map<String, String>> _categories = [
@@ -59,6 +62,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _emailCtrl =
       TextEditingController(text: 'petiondary@gmail.com');
 
+  // ── Profile photo ──────────────────────────────────────────────
+  String _profileImageUrl =
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
+  File? _profileImageFile;
+
   // ── Food preferences ──────────────────────────────────────────
   final Set<String> _foodPrefs = {'Bouyon', 'Fritay'};
 
@@ -68,6 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── History filters ────────────────────────────────────────────
   String _historyStatusFilter = 'all';
+
+  // Cache for OrderRecord → Map conversions (keeps mutations alive)
+  final Map<String, Map<String, dynamic>> _orderMapCache = {};
   DateTime? _historyStartDate;
   DateTime? _historyEndDate;
 
@@ -322,37 +333,81 @@ class _HomeScreenState extends State<HomeScreen> {
       "order_id": "ORD-2026-8941",
       "item": "Bouyon Spesyal Kreyòl",
       "restaurant": "Restoran Mèt Dary",
-      "price": 500.0,
-      "date": "Jodi a, 4:04 PM",
-      "dateTime": DateTime.now(),
+      "price": 656.0,
+      "subtotal": 500.0,
+      "deliveryFee": 150.0,
+      "dateTime": DateTime.now().subtract(const Duration(hours: 1)),
       "status": "En cours",
+      "mode": "delivery",
+      "ts_created": DateTime.now().subtract(const Duration(hours: 1)),
+      "ts_preparation": null,
+      "ts_livraison": null,
+      "ts_livre": null,
+      "ts_annule": null,
     },
     {
       "order_id": "ORD-2026-7532",
       "item": "Pizza Pòtoprens",
       "restaurant": "Lakay Pizza",
       "price": 750.0,
-      "date": "Ayè, 7:15 PM",
-      "dateTime": DateTime.now().subtract(const Duration(days: 1)),
+      "subtotal": 750.0,
+      "deliveryFee": 0.0,
+      "dateTime": DateTime.now().subtract(const Duration(days: 1, hours: 5)),
       "status": "En préparation",
+      "mode": "pickup",
+      "ts_created": DateTime.now().subtract(const Duration(days: 1, hours: 5)),
+      "ts_preparation": DateTime.now().subtract(const Duration(days: 1, hours: 4, minutes: 40)),
+      "ts_livraison": null,
+      "ts_livre": null,
+      "ts_annule": null,
+    },
+    {
+      "order_id": "ORD-2026-5891",
+      "item": "Griot ak Bannann Peze",
+      "restaurant": "Bò Lanmè Resto",
+      "price": 966.0,
+      "subtotal": 800.0,
+      "deliveryFee": 250.0,
+      "dateTime": DateTime.now().subtract(const Duration(days: 2, hours: 3)),
+      "status": "En livraison",
+      "mode": "delivery",
+      "ts_created": DateTime.now().subtract(const Duration(days: 2, hours: 3)),
+      "ts_preparation": DateTime.now().subtract(const Duration(days: 2, hours: 2, minutes: 30)),
+      "ts_livraison": DateTime.now().subtract(const Duration(days: 2, hours: 2)),
+      "ts_livre": null,
+      "ts_annule": null,
     },
     {
       "order_id": "ORD-2026-4122",
       "item": "Burger Kreyòl Double",
       "restaurant": "Chit Chat Fastfood",
-      "price": 350.0,
-      "date": "18 Me 2026",
-      "dateTime": DateTime(2026, 5, 18),
+      "price": 506.0,
+      "subtotal": 350.0,
+      "deliveryFee": 200.0,
+      "dateTime": DateTime(2026, 5, 18, 14, 30),
       "status": "Annulé",
+      "mode": "delivery",
+      "ts_created": DateTime(2026, 5, 18, 14, 30),
+      "ts_preparation": null,
+      "ts_livraison": null,
+      "ts_livre": null,
+      "ts_annule": DateTime(2026, 5, 18, 14, 45),
     },
     {
       "order_id": "ORD-2026-3011",
-      "item": "Fritay Pwason",
+      "item": "Fritay Pwason Fre",
       "restaurant": "Bò Lanmè Resto",
-      "price": 1200.0,
-      "date": "15 Me 2026",
-      "dateTime": DateTime(2026, 5, 15),
+      "price": 1366.0,
+      "subtotal": 1200.0,
+      "deliveryFee": 250.0,
+      "dateTime": DateTime(2026, 5, 15, 11, 0),
       "status": "Livré",
+      "mode": "delivery",
+      "ts_created": DateTime(2026, 5, 15, 11, 0),
+      "ts_preparation": DateTime(2026, 5, 15, 11, 15),
+      "ts_livraison": DateTime(2026, 5, 15, 11, 40),
+      "ts_livre": DateTime(2026, 5, 15, 12, 10),
+      "ts_annule": null,
     },
   ];
 
@@ -361,6 +416,23 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_selectedCategory == 0) return allMenuItems;
     final cat = _categories[_selectedCategory]["label"]!;
     return allMenuItems.where((i) => i["category"] == cat).toList();
+  }
+
+  // ── Sorted restaurants by user commune ────────────────────────
+  List<RestaurantInfo> get _sortedRestaurants {
+    final userCommune = AddressService.addresses.isNotEmpty
+        ? AddressService.addresses.first.commune
+        : 'Carrefour';
+    final sorted = List<RestaurantInfo>.from(allRestaurantData);
+    sorted.sort((a, b) {
+      int priority(RestaurantInfo r) {
+        if (r.commune == userCommune) return 0;
+        if (r.deliveryZones.contains(userCommune)) return 1;
+        return 2;
+      }
+      return priority(a).compareTo(priority(b));
+    });
+    return sorted;
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────
@@ -380,10 +452,14 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       setState(() {});
     });
+    OrderService.countNotifier.addListener(_onNewOrder);
   }
+
+  void _onNewOrder() => setState(() {});
 
   @override
   void dispose() {
+    OrderService.countNotifier.removeListener(_onNewOrder);
     _adTimer.cancel();
     _adController.dispose();
     _menuScrollCtrl.dispose();
@@ -395,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── KYC guard ─────────────────────────────────────────────────
   void _verifyKycAndNavigate(Map<String, dynamic> product) {
-    if (!_isAccountVerified) {
+    if (!KycService.isVerified) {
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -426,9 +502,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: _kPrimary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10))),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                setState(() => _currentIndex = 3);
+                final verified = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const KycScreen()),
+                );
+                if (verified == true) setState(() {});
               },
               child: const Text("Fè KYC Kounye a",
                   style: TextStyle(color: Colors.white)),
@@ -479,8 +559,10 @@ class _HomeScreenState extends State<HomeScreen> {
         SliverToBoxAdapter(child: _buildSectionTitle("Restoran ki toupre w")),
         SliverList(
           delegate: SliverChildBuilderDelegate(
-            (_, i) =>
-                _buildRestaurantCard(nearbyRestaurants[i % nearbyRestaurants.length]),
+            (_, i) {
+              final sorted = _sortedRestaurants;
+              return _buildRestaurantCard(sorted[i % sorted.length]);
+            },
             childCount: 10000,
           ),
         ),
@@ -1063,153 +1145,186 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Nearby restaurants infinite vertical list ─────────────────
-  Widget _buildRestaurantCard(Map<String, dynamic> resto) {
-    final dishes = resto["dishes"] as List<String>;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+  Widget _buildRestaurantCard(RestaurantInfo resto) {
+    String modeLabel;
+    Color modeColor;
+    Color modeBg;
+    if (resto.mode == DeliveryMode.pickupOnly) {
+      modeLabel = '🏪 Pickup sèlman';
+      modeColor = Colors.blue.shade700;
+      modeBg = Colors.blue.shade50;
+    } else if (resto.mode == DeliveryMode.deliveryOnly) {
+      modeLabel = '🛵 Livrezon sèlman';
+      modeColor = Colors.orange.shade700;
+      modeBg = Colors.orange.shade50;
+    } else {
+      modeLabel = '✅ Livrezon + Pickup';
+      modeColor = Colors.green.shade700;
+      modeBg = Colors.green.shade50;
+    }
+
+    final menuItems =
+        allMenuItems.where((m) => m['restaurant'] == resto.name).toList();
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RestaurantDetailScreen(
+            restaurant: resto,
+            menuItems: menuItems,
           ),
-        ],
+        ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-                color: _kLight,
-                borderRadius: BorderRadius.circular(15)),
-            child: Center(
-              child: Text(resto["logo"],
-                  style: const TextStyle(fontSize: 28)),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        resto["name"],
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: _kDark),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                  color: _kLight,
+                  borderRadius: BorderRadius.circular(15)),
+              child: Center(
+                child: Text(resto.emoji,
+                    style: const TextStyle(fontSize: 28)),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          resto.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: _kDark),
+                        ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded,
+                                color: Colors.amber, size: 13),
+                            const SizedBox(width: 3),
+                            Text(
+                              resto.rating.toStringAsFixed(1),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star_rounded,
-                              color: Colors.amber, size: 13),
-                          const SizedBox(width: 3),
-                          Text(
-                            resto["rating"],
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade700),
-                          ),
-                        ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on,
+                          size: 12, color: Colors.grey.shade400),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          resto.address,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: Colors.grey.shade500, fontSize: 11),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.location_on,
-                        size: 12, color: Colors.grey.shade400),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        resto["address"],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: modeBg,
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text(modeLabel,
                         style: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 11),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.delivery_dining_outlined,
-                        size: 12, color: Colors.grey.shade400),
-                    const SizedBox(width: 3),
-                    Text(
-                      resto["deliveryTime"],
-                      style: TextStyle(
-                          color: Colors.grey.shade500, fontSize: 11),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  resto["desc"],
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
-                      height: 1.4),
-                ),
-                const SizedBox(height: 10),
-                // Featured dish pills
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Pla: ",
-                        style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600)),
-                    Flexible(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: dishes
-                            .map((d) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: _kLight,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    d,
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: _kPrimary,
-                                        fontWeight: FontWeight.w500),
-                                  ),
-                                ))
-                            .toList(),
+                            color: modeColor)),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    resto.desc,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                        height: 1.4),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Pla: ",
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade600)),
+                      Flexible(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: resto.dishes
+                              .map((d) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: _kLight,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      d,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: _kPrimary,
+                                          fontWeight: FontWeight.w500),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1303,195 +1418,255 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // ── Search results ──────────────────────────────────────
-        if (hasQuery) ...[
-          if (matchedRestaurants.isEmpty && matchedMenuItems.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 40),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(Icons.search_off_rounded,
-                        size: 48, color: Colors.grey.shade300),
-                    const SizedBox(height: 12),
-                    Text("Okenn rezilta pou «$_searchQuery»",
-                        style: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 14)),
+        // ── Search results (scrollable to avoid keyboard overflow) ──
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasQuery) ...[
+                  if (matchedRestaurants.isEmpty && matchedMenuItems.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 40),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.search_off_rounded,
+                                size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text("Okenn rezilta pou «$_searchQuery»",
+                                style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    )
+                  else ...[
+                    if (matchedRestaurants.isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
+                        child: Text("Restoran",
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: _kDark)),
+                      ),
+                      ...matchedRestaurants.map((r) {
+                        final info = findRestaurant(r['name'] as String);
+                        final menuItems = info != null
+                            ? allMenuItems
+                                .where((m) => m['restaurant'] == info.name)
+                                .toList()
+                            : <Map<String, dynamic>>[];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          child: GestureDetector(
+                            onTap: info != null
+                                ? () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            RestaurantDetailScreen(
+                                          restaurant: info,
+                                          menuItems: menuItems,
+                                        ),
+                                      ),
+                                    )
+                                : null,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2))
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                        color: _kLight,
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
+                                    child: Center(
+                                        child: Text(
+                                            info?.emoji ??
+                                                r['logo'] as String,
+                                            style: const TextStyle(
+                                                fontSize: 22))),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(r['name'],
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: _kDark)),
+                                        Text(r['address'],
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                                color: Colors.grey.shade500,
+                                                fontSize: 11)),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    children: [
+                                      const Icon(Icons.star_rounded,
+                                          color: Colors.amber, size: 14),
+                                      Text(r['rating'].toString(),
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.chevron_right_rounded,
+                                      color: Colors.grey.shade300, size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                    if (matchedMenuItems.isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
+                        child: Text("Plat",
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: _kDark)),
+                      ),
+                      ...matchedMenuItems.map((item) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 4),
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProductDescriptionScreen(
+                                      product: item),
+                                ),
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2))
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                      child: Image.network(
+                                        item['image'],
+                                        width: 52,
+                                        height: 52,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => Container(
+                                            width: 52,
+                                            height: 52,
+                                            color: _kLight,
+                                            child: const Center(
+                                                child: Text("🍽️",
+                                                    style: TextStyle(
+                                                        fontSize: 24)))),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item['name'],
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                  color: _kDark)),
+                                          Text(item['restaurant'],
+                                              style: const TextStyle(
+                                                  color: _kPrimary,
+                                                  fontSize: 12,
+                                                  fontWeight:
+                                                      FontWeight.w500)),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                        "${(item['price'] as double).toStringAsFixed(0)} HTG",
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: Colors.green.shade700)),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.chevron_right_rounded,
+                                        color: Colors.grey.shade300,
+                                        size: 18),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )),
+                    ],
                   ],
-                ),
-              ),
-            )
-          else ...[
-            if (matchedRestaurants.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
-                child: Text("Restoran",
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: _kDark)),
-              ),
-              ...matchedRestaurants.map((r) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2))
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                                color: _kLight,
-                                borderRadius: BorderRadius.circular(10)),
-                            child: Center(
-                                child: Text(r['logo'],
-                                    style: const TextStyle(fontSize: 22))),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(r['name'],
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: _kDark)),
-                                Text(r['address'],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: Colors.grey.shade500,
-                                        fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            children: [
-                              Icon(Icons.star_rounded,
-                                  color: Colors.amber, size: 14),
-                              Text(r['rating'].toString(),
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ],
-                      ),
+                ] else ...[
+                  // ── Category chips (when no query) ─────────────
+                  const SizedBox(height: 20),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text("Kategori popilè",
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _kDark)),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _categories
+                          .asMap()
+                          .entries
+                          .skip(1)
+                          .map((e) => _buildSearchChip(e.key,
+                              "${e.value["emoji"]} ${e.value["label"]}"))
+                          .toList(),
                     ),
-                  )),
-            ],
-            if (matchedMenuItems.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
-                child: Text("Plat",
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: _kDark)),
-              ),
-              ...matchedMenuItems.map((item) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2))
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              item['image'],
-                              width: 52,
-                              height: 52,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
-                                  width: 52,
-                                  height: 52,
-                                  color: _kLight,
-                                  child: const Center(
-                                      child: Text("🍽️",
-                                          style: TextStyle(fontSize: 24)))),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(item['name'],
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: _kDark)),
-                                Text(item['restaurant'],
-                                    style: const TextStyle(
-                                        color: _kPrimary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                          ),
-                          Text("${(item['price'] as double).toStringAsFixed(0)} HTG",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.green.shade700)),
-                        ],
-                      ),
-                    ),
-                  )),
-            ],
-          ],
-        ]
-
-        // ── Category chips (when no query) ──────────────────────
-        else ...[
-          const SizedBox(height: 20),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text("Kategori popilè",
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _kDark)),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _categories
-                  .asMap()
-                  .entries
-                  .skip(1)
-                  .map((e) => _buildSearchChip(
-                      e.key, "${e.value["emoji"]} ${e.value["label"]}"))
-                  .toList(),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ],
             ),
           ),
-        ],
+        ),
       ],
     );
   }
@@ -1525,19 +1700,49 @@ class _HomeScreenState extends State<HomeScreen> {
   // 3. HISTORY
   // ═══════════════════════════════════════════════════════════════
 
+  Map<String, dynamic> _orderToMap(OrderRecord o) {
+    return {
+      'order_id': o.orderId,
+      'item': o.itemSummary,
+      'items': o.items,
+      'restaurant': o.restaurant,
+      'price': o.total,
+      'subtotal': o.subtotal,
+      'deliveryFee': o.deliveryFee,
+      'status': o.status,
+      'mode': o.mode,
+      'dateTime': o.createdAt,
+      'ts_created': o.createdAt,
+      'ts_preparation': o.tsPreparation,
+      'ts_livraison': o.tsLivraison,
+      'ts_livre': o.tsLivre,
+      'ts_annule': o.tsAnnule,
+      '_serviceOrder': true,
+    };
+  }
+
+  List<Map<String, dynamic>> get _allHistory {
+    for (final order in OrderService.orders) {
+      if (!_orderMapCache.containsKey(order.orderId)) {
+        _orderMapCache[order.orderId] = _orderToMap(order);
+      }
+    }
+    return [
+      ...OrderService.orders.map((o) => _orderMapCache[o.orderId]!),
+      ...transactionHistory,
+    ];
+  }
+
   List<Map<String, dynamic>> get _filteredHistory {
-    return transactionHistory.where((tx) {
-      // Status filter
+    return _allHistory.where((tx) {
       if (_historyStatusFilter != 'all' &&
           tx['status'] != _historyStatusFilter) {
         return false;
       }
-      // Date range filter
       final dt = tx['dateTime'] as DateTime;
       if (_historyStartDate != null) {
-        final start = DateTime(
-            _historyStartDate!.year, _historyStartDate!.month,
-            _historyStartDate!.day);
+        final start = DateTime(_historyStartDate!.year,
+            _historyStartDate!.month, _historyStartDate!.day);
         if (dt.isBefore(start)) return false;
       }
       if (_historyEndDate != null) {
@@ -1587,6 +1792,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ('all', 'Tout'),
       ('En cours', 'En cours'),
       ('En préparation', 'Préparasyon'),
+      ('En livraison', 'Livrezon'),
       ('Annulé', 'Anile'),
       ('Livré', 'Livre'),
     ];
@@ -1782,21 +1988,409 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _formatTs(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dtDay = DateTime(dt.year, dt.month, dt.day);
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    if (dtDay == today) return 'Jodi $h:$m';
+    if (dtDay == today.subtract(const Duration(days: 1))) return 'Yè $h:$m';
+    return '${dt.day}/${dt.month} $h:$m';
+  }
+
+  Widget _buildTimelineStep(
+      IconData icon, String label, DateTime? ts, bool done,
+      {bool isRed = false}) {
+    final color = isRed
+        ? Colors.red.shade600
+        : (done ? _kPrimary : Colors.grey.shade300);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+            child: Icon(icon, size: 14, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        done ? FontWeight.w600 : FontWeight.normal,
+                    color: done ? _kDark : Colors.grey.shade400)),
+          ),
+          if (ts != null)
+            Text(_formatTs(ts),
+                style:
+                    TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderTimeline(Map<String, dynamic> tx) {
+    final status = tx['status'] as String;
+    final tsCreated = tx['ts_created'] as DateTime?;
+    final tsPrep = tx['ts_preparation'] as DateTime?;
+    final tsLivraison = tx['ts_livraison'] as DateTime?;
+    final tsLivre = tx['ts_livre'] as DateTime?;
+    final tsAnnule = tx['ts_annule'] as DateTime?;
+    final isPickup = tx['mode'] == 'pickup';
+
+    if (status == 'Annulé') {
+      return Column(children: [
+        _buildTimelineStep(
+            Icons.receipt_outlined, 'Kòmand Kreye', tsCreated, true),
+        _buildTimelineStep(Icons.cancel_outlined, 'Anile', tsAnnule, true,
+            isRed: true),
+      ]);
+    }
+    return Column(children: [
+      _buildTimelineStep(
+          Icons.receipt_outlined, 'Kòmand Kreye', tsCreated, true),
+      _buildTimelineStep(Icons.restaurant_rounded, 'En Préparasyon', tsPrep,
+          tsPrep != null),
+      if (!isPickup)
+        _buildTimelineStep(Icons.delivery_dining_rounded, 'En Livrezon',
+            tsLivraison, tsLivraison != null),
+      _buildTimelineStep(
+          Icons.check_circle_outline,
+          isPickup ? 'Pran nan Restoran' : 'Livre',
+          tsLivre,
+          tsLivre != null),
+    ]);
+  }
+
+  void _showQrDialog(String orderId) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("QR Code Kòmand",
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(orderId,
+                style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 12,
+                    letterSpacing: 0.5)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200)),
+              child: QrImageView(
+                data: orderId,
+                version: QrVersions.auto,
+                size: 200,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Montre QR code sa a bay livrè a pou li konfime livrezon an.",
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Fèmen",
+                style: TextStyle(color: _kPrimary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmCancelOrder(
+      Map<String, dynamic> tx, String orderId, double subtotal) {
+    final deliveryFee = (tx['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+    final refundAmount = subtotal + deliveryFee;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: Colors.red.shade50, shape: BoxShape.circle),
+          child: Icon(Icons.cancel_outlined,
+              color: Colors.red.shade700, size: 32),
+        ),
+        title: const Text("Anile Kòmand?",
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Ranbousman ou pral resevwa:",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            _refundRow("Pri kòmand", subtotal),
+            if (deliveryFee > 0) _refundRow("Frè livrezon", deliveryFee),
+            const Divider(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Total ranbouse",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text("${refundAmount.toStringAsFixed(0)} HTG",
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF16a34a))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                "Frè sèvis (${((tx['price'] as num? ?? 0) - subtotal - deliveryFee).abs().toStringAsFixed(0)} HTG) pa ranbouse.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Colors.orange.shade800,
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Retounen",
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10))),
+            onPressed: () {
+              Navigator.pop(context);
+              final now = DateTime.now();
+              setState(() {
+                tx['status'] = 'Annulé';
+                tx['ts_annule'] = now;
+              });
+              if (tx['_serviceOrder'] == true) {
+                OrderService.updateStatus(orderId, 'Annulé',
+                    tsAnnule: now);
+              }
+              WalletService.addRefund(
+                  refundAmount, orderId, tx['item'] as String);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(
+                    "Kòmand anile. ${refundAmount.toStringAsFixed(0)} HTG ranbouse nan pòch ou."),
+                backgroundColor: Colors.green.shade700,
+              ));
+            },
+            child: const Text("Wi, Anile",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _refundRow(String label, double amount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+          Text("${amount.toStringAsFixed(0)} HTG",
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  void _confirmReceiptOrder(Map<String, dynamic> tx) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: Colors.green.shade50, shape: BoxShape.circle),
+          child: Icon(Icons.check_circle_outline,
+              color: Colors.green.shade700, size: 32),
+        ),
+        title: const Text("Konfime Resepsyon?",
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        content: Text(
+          "Konfimasyon sa ap make kòmand ou a kòm 'Livré'. Ou pa ka defè aksyon sa a.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Anile",
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10))),
+            onPressed: () {
+              Navigator.pop(context);
+              final now = DateTime.now();
+              setState(() {
+                tx['status'] = 'Livré';
+                tx['ts_livre'] = now;
+              });
+              if (tx['_serviceOrder'] == true) {
+                OrderService.updateStatus(
+                    tx['order_id'] as String, 'Livré',
+                    tsLivre: now);
+              }
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text("Mèsi! Kòmand ou konfime kòm livré."),
+                backgroundColor: Colors.green,
+              ));
+            },
+            child: const Text("Wi, Konfime",
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemsList(List items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: items.map<Widget>((item) {
+        final name = item['name'] as String? ?? '';
+        final qty = item['quantity'] as int? ?? 1;
+        final unitPrice = item['unitPrice'] as double? ?? 0.0;
+        final suppTotal = item['suppTotal'] as double? ?? 0.0;
+        final supps = item['supplements'] as List? ?? [];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                    color: _kLight, borderRadius: BorderRadius.circular(6)),
+                child: Center(
+                  child: Text('$qty',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _kPrimary)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: _kDark)),
+                    if (supps.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 3,
+                          children: supps
+                              .map((s) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                        color: _kLight,
+                                        borderRadius:
+                                            BorderRadius.circular(5)),
+                                    child: Text('+ ${s['name']}',
+                                        style: const TextStyle(
+                                            fontSize: 10,
+                                            color: _kPrimary,
+                                            fontWeight: FontWeight.w500)),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                '${((unitPrice + suppTotal) * qty).toStringAsFixed(0)} HTG',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildOrderCard(Map<String, dynamic> tx) {
+    final status = tx['status'] as String;
+    final orderId = tx['order_id'] as String;
+    final subtotal = (tx['subtotal'] ?? tx['price']) as double;
+    final mode = tx['mode'] as String? ?? 'delivery';
+
     Color statusColor;
     Color statusBg;
     IconData statusIcon;
-
-    switch (tx["status"]) {
+    switch (status) {
       case "En cours":
         statusColor = Colors.blue.shade700;
         statusBg = Colors.blue.shade50;
-        statusIcon = Icons.local_shipping_outlined;
+        statusIcon = Icons.hourglass_empty_rounded;
         break;
       case "En préparation":
         statusColor = Colors.orange.shade700;
         statusBg = Colors.orange.shade50;
-        statusIcon = Icons.restaurant;
+        statusIcon = Icons.restaurant_rounded;
+        break;
+      case "En livraison":
+        statusColor = Colors.purple.shade700;
+        statusBg = Colors.purple.shade50;
+        statusIcon = Icons.delivery_dining_rounded;
         break;
       case "Annulé":
         statusColor = Colors.red.shade700;
@@ -1825,18 +2419,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(tx["order_id"],
+              Text(orderId,
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Colors.grey.shade500,
                       fontSize: 12,
                       letterSpacing: 0.5)),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(20)),
@@ -1845,7 +2440,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Icon(statusIcon, size: 12, color: statusColor),
                     const SizedBox(width: 4),
-                    Text(tx["status"],
+                    Text(status,
                         style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.bold,
@@ -1858,38 +2453,140 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           Divider(color: Colors.grey.shade100, height: 1),
           const SizedBox(height: 10),
-          Text(tx["item"],
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 17, color: _kDark)),
-          const SizedBox(height: 3),
-          Text(tx["restaurant"],
-              style: const TextStyle(
-                  color: _kPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.access_time,
-                      size: 14, color: Colors.grey.shade400),
-                  const SizedBox(width: 4),
-                  Text(tx["date"],
-                      style: TextStyle(
-                          color: Colors.grey.shade500, fontSize: 12)),
-                ],
-              ),
-              Text(
-                "${tx["price"]} HTG",
-                style: TextStyle(
+          // Items list (rich) or single item name
+          if (tx['items'] != null && (tx['items'] as List).isNotEmpty)
+            _buildItemsList(tx['items'] as List)
+          else
+            Text(tx["item"],
+                style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.green.shade700),
+                    fontSize: 15,
+                    color: _kDark)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(tx["restaurant"],
+                  style: const TextStyle(
+                      color: _kPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                    color: mode == 'pickup'
+                        ? Colors.blue.shade50
+                        : Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(
+                    mode == 'pickup' ? '🏪 Pickup' : '🛵 Livrezon',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: mode == 'pickup'
+                            ? Colors.blue.shade700
+                            : Colors.orange.shade700)),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          // Price
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                  "Sous-total: ${subtotal.toStringAsFixed(0)} HTG",
+                  style: TextStyle(
+                      color: Colors.grey.shade500, fontSize: 12)),
+              Text("${(tx['price'] as double).toStringAsFixed(0)} HTG",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.green.shade700)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Divider(color: Colors.grey.shade100, height: 1),
+          const SizedBox(height: 8),
+          // Timeline
+          _buildOrderTimeline(tx),
+          // Action buttons
+          if (status == 'En cours') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.cancel_outlined, size: 16),
+                label: const Text("Anile Kòmand"),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade600,
+                    side: BorderSide(color: Colors.red.shade300),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10)),
+                onPressed: () =>
+                    _confirmCancelOrder(tx, orderId, subtotal),
+              ),
+            ),
+          ],
+          if (status == 'En préparation') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.qr_code_rounded, size: 16),
+                label: const Text("Wè QR Code manje a"),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade600,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10)),
+                onPressed: () => _showQrDialog(orderId),
+              ),
+            ),
+          ],
+          if (status == 'En livraison') ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon:
+                        const Icon(Icons.qr_code_rounded, size: 15),
+                    label: const Text("QR Code"),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.purple.shade700,
+                        side: BorderSide(
+                            color: Colors.purple.shade200),
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10)),
+                    onPressed: () => _showQrDialog(orderId),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text("Konfime"),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10)),
+                    onPressed: () => _confirmReceiptOrder(tx),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1954,22 +2651,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   blurRadius: 12)
                             ],
                           ),
-                          child: const CircleAvatar(
-                            radius: 46,
-                            backgroundImage: NetworkImage(
-                                "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"),
+                          child: GestureDetector(
+                            onTap: _showProfilePhotoSheet,
+                            child: CircleAvatar(
+                              radius: 46,
+                              backgroundImage: _profileImageFile != null
+                                  ? FileImage(_profileImageFile!)
+                                  : NetworkImage(_profileImageUrl),
+                            ),
                           ),
                         ),
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: GestureDetector(
-                            onTap: () =>
-                                ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      "Chwazi yon nouvo foto pwofil...")),
-                            ),
+                            onTap: _showProfilePhotoSheet,
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: const BoxDecoration(
@@ -2002,22 +2698,22 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _isAccountVerified
+                color: KycService.isVerified
                     ? Colors.green.shade50
                     : Colors.red.shade50,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                    color: _isAccountVerified
+                    color: KycService.isVerified
                         ? Colors.green.shade200
                         : Colors.red.shade200),
               ),
               child: Row(
                 children: [
                   Icon(
-                      _isAccountVerified
+                      KycService.isVerified
                           ? Icons.verified_user
                           : Icons.gpp_bad,
-                      color: _isAccountVerified
+                      color: KycService.isVerified
                           ? Colors.green.shade700
                           : Colors.red.shade700,
                       size: 28),
@@ -2027,17 +2723,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                            _isAccountVerified
+                            KycService.isVerified
                                 ? "KYC Apwouve ✓"
                                 : "KYC Pa Verifye",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
-                                color: _isAccountVerified
+                                color: KycService.isVerified
                                     ? Colors.green.shade900
                                     : Colors.red.shade900)),
                         Text(
-                            _isAccountVerified
+                            KycService.isVerified
                                 ? "Ou kapab pase kòmand lib."
                                 : "Soumèt pyès idantite w pou debloke.",
                             style: TextStyle(
@@ -2045,7 +2741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-                  if (!_isAccountVerified)
+                  if (!KycService.isVerified)
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade800,
@@ -2055,12 +2751,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(10)),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                      onPressed: () {
-                        setState(() => _isAccountVerified = true);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    "Siksè! Dokiman KYC soumèt epi apwouve.")));
+                      onPressed: () async {
+                        final verified = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const KycScreen()),
+                        );
+                        if (verified == true) setState(() {});
                       },
                       child: const Text("Verifye",
                           style: TextStyle(color: Colors.white, fontSize: 12)),
@@ -2481,6 +3178,235 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFromGallery(BuildContext sheetCtx) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 80);
+    if (picked == null) return;
+    setState(() {
+      _profileImageFile = File(picked.path);
+    });
+    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Foto pwofil mete ajou!"),
+        backgroundColor: Color(0xFFB45309),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  void _showProfilePhotoSheet() {
+    final avatarOptions = [
+      {
+        'url': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        'label': 'Defolt',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+        'label': 'Fanm 1',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+        'label': 'Gason 1',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+        'label': 'Fanm 2',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+        'label': 'Gason 2',
+      },
+      {
+        'url': 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
+        'label': 'Fanm 3',
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) => Container(
+          padding: EdgeInsets.fromLTRB(
+              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 28),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2))),
+              ),
+              const SizedBox(height: 16),
+              const Text("Foto Pwofil",
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: _kDark)),
+              const SizedBox(height: 4),
+              Text("Chwazi yon avata oswa paste lyen foto ou",
+                  style:
+                      TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              const SizedBox(height: 16),
+              // Gallery button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickFromGallery(ctx),
+                  icon: const Icon(Icons.photo_library_rounded, size: 18),
+                  label: const Text("Chwazi nan Galeri Aparèy"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _kPrimary,
+                    side: const BorderSide(color: _kPrimary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Avatar grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1,
+                ),
+                itemCount: avatarOptions.length,
+                itemBuilder: (_, i) {
+                  final opt = avatarOptions[i];
+                  final isSelected =
+                      _profileImageUrl == opt['url'];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _profileImageUrl = opt['url']!;
+                        _profileImageFile = null;
+                      });
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text("Foto pwofil mete ajou!"),
+                          backgroundColor: Color(0xFFB45309),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? _kPrimary
+                                  : Colors.grey.shade200,
+                              width: isSelected ? 3 : 1.5,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: Image.network(
+                              opt['url']!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (_, _, _) => Container(
+                                color: _kLight,
+                                child: const Icon(Icons.person,
+                                    color: _kPrimary, size: 40),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          Positioned(
+                            bottom: 2,
+                            right: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                  color: _kPrimary,
+                                  shape: BoxShape.circle),
+                              child: const Icon(
+                                  Icons.check_rounded,
+                                  color: Colors.white,
+                                  size: 12),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              // URL input option
+              const Text("Oswa paste URL foto ou a:",
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _kDark)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: "https://...",
+                      hintStyle: TextStyle(
+                          color: Colors.grey.shade400, fontSize: 12),
+                      prefixIcon: const Icon(Icons.link_rounded,
+                          color: _kPrimary, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      filled: true,
+                      fillColor: _kLight,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onSubmitted: (url) {
+                      if (url.trim().startsWith('http')) {
+                        setState(() {
+                          _profileImageUrl = url.trim();
+                          _profileImageFile = null;
+                        });
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Foto pwofil mete ajou!"),
+                            backgroundColor: Color(0xFFB45309),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ]),
+            ],
           ),
         ),
       ),

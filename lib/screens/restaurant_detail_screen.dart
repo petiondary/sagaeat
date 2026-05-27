@@ -24,6 +24,26 @@ class RestaurantDetailScreen extends StatefulWidget {
 class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   int _reviewRating = 0;
   final _reviewCtrl = TextEditingController();
+  bool _isFollowing = false;
+  late int _tasteCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _tasteCount = widget.restaurant.tasteCount;
+  }
+
+  // Demo gallery photos
+  final List<String> _galleryPhotos = [
+    'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=500&q=80',
+    'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80',
+    'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80',
+    'https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=500&q=80',
+    'https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=500&q=80',
+    'https://images.unsplash.com/photo-1516684732162-798a0062be99?w=500&q=80',
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=500&q=80',
+    'https://images.unsplash.com/photo-1551183053-bf91798d792e?w=500&q=80',
+  ];
 
   // Demo reviews
   final List<_Review> _reviews = [
@@ -36,6 +56,70 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   void dispose() {
     _reviewCtrl.dispose();
     super.dispose();
+  }
+
+  void _showGalleryPhoto(int index) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.network(
+                _galleryPhotos[index],
+                fit: BoxFit.contain,
+                width: double.infinity,
+                errorBuilder: (_, _, _) => Container(
+                  height: 300,
+                  color: _kLight,
+                  child: const Center(
+                      child: Text('🍽️', style: TextStyle(fontSize: 64))),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                      color: Colors.black54, shape: BoxShape.circle),
+                  child: const Icon(Icons.close_rounded,
+                      color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 10,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(
+                    "${index + 1} / ${_galleryPhotos.length}",
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _submitReview() {
@@ -85,6 +169,63 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             pinned: true,
             backgroundColor: _kPrimary,
             iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isFollowing = !_isFollowing;
+                    _tasteCount += _isFollowing ? 1 : -1;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(_isFollowing
+                        ? '❤️ Ou swiv ${r.name} kounye a!'
+                        : 'Ou pa swiv ${r.name} ankò.'),
+                    backgroundColor: _isFollowing
+                        ? _kPrimary
+                        : Colors.grey.shade700,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ));
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _isFollowing ? Colors.white : Colors.white24,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color:
+                          _isFollowing ? _kPrimary : Colors.white54,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _isFollowing
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: _isFollowing ? _kPrimary : Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        _isFollowing ? 'Swiv' : 'Swiv',
+                        style: TextStyle(
+                          color:
+                              _isFollowing ? _kPrimary : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -145,8 +286,103 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Delivery mode badge
-                  _buildModeBadge(r),
+                  // Delivery mode badge + follow button
+                  Row(
+                    children: [
+                      _buildModeBadge(r),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isFollowing = !_isFollowing;
+                            _tasteCount += _isFollowing ? 1 : -1;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(_isFollowing
+                                ? '❤️ Ou swiv ${r.name}!'
+                                : 'Dezabòne de ${r.name}.'),
+                            backgroundColor: _isFollowing
+                                ? _kPrimary
+                                : Colors.grey.shade600,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ));
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _isFollowing ? _kPrimary : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _isFollowing
+                                  ? _kPrimary
+                                  : Colors.grey.shade300,
+                            ),
+                            boxShadow: _isFollowing
+                                ? [
+                                    BoxShadow(
+                                        color:
+                                            _kPrimary.withValues(alpha: 0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3))
+                                  ]
+                                : [],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _isFollowing
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color:
+                                    _isFollowing ? Colors.white : _kPrimary,
+                                size: 15,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isFollowing ? 'Abonnen ✓' : 'Swiv',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isFollowing
+                                      ? Colors.white
+                                      : _kPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Taste count
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_rounded,
+                          size: 14,
+                          color: _isFollowing
+                              ? _kPrimary
+                              : Colors.grey.shade400),
+                      const SizedBox(width: 6),
+                      Text(
+                        _tasteCount >= 1000
+                            ? '${(_tasteCount / 1000).toStringAsFixed(1)}K Taste'
+                            : '$_tasteCount Taste',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _isFollowing
+                              ? _kPrimary
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 14),
 
                   // Address
@@ -205,6 +441,81 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 ),
               ),
             ),
+
+          // ── Gallery ──────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Galeri",
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: _kDark)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: _kLight,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Text("${_galleryPhotos.length} foto",
+                            style: const TextStyle(
+                                color: _kPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 148,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _galleryPhotos.length,
+                      itemBuilder: (_, i) => GestureDetector(
+                        onTap: () => _showGalleryPhoto(i),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          width: 130,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3)),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.network(
+                              _galleryPhotos[i],
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                color: _kLight,
+                                child: const Center(
+                                    child: Text('🍽️',
+                                        style: TextStyle(fontSize: 36))),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
 
           // ── Reviews ──────────────────────────────────────────────
           SliverToBoxAdapter(

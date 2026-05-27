@@ -12,6 +12,8 @@ class RestaurantInfo {
   final List<String> dishes;
   final DeliveryMode mode;
   final List<String> deliveryZones;
+  final double deliveryFee;
+  final int tasteCount;
 
   const RestaurantInfo({
     required this.name,
@@ -25,6 +27,8 @@ class RestaurantInfo {
     required this.dishes,
     required this.mode,
     required this.deliveryZones,
+    this.deliveryFee = 150.0,
+    this.tasteCount = 0,
   });
 
   bool get offersPickup =>
@@ -49,6 +53,8 @@ const List<RestaurantInfo> allRestaurantData = [
     dishes: ['Bouyon', 'Griot', 'Diri Djondjon'],
     mode: DeliveryMode.both,
     deliveryZones: ['Carrefour', 'Gressier', 'Léogâne', 'Arcahaie'],
+    deliveryFee: 150.0,
+    tasteCount: 2840,
   ),
   RestaurantInfo(
     name: 'Chit Chat Fastfood',
@@ -67,6 +73,8 @@ const List<RestaurantInfo> allRestaurantData = [
       'Carrefour', 'Delmas', 'Pétion-Ville',
       'Croix-des-Bouquets', 'Port-au-Prince'
     ],
+    deliveryFee: 200.0,
+    tasteCount: 1530,
   ),
   RestaurantInfo(
     name: 'Lakay Pizza',
@@ -83,6 +91,8 @@ const List<RestaurantInfo> allRestaurantData = [
     dishes: ['Pizza', 'Calzone', 'Bwason'],
     mode: DeliveryMode.pickupOnly,
     deliveryZones: [],
+    deliveryFee: 0.0,
+    tasteCount: 980,
   ),
   RestaurantInfo(
     name: 'Bò Lanmè Resto',
@@ -98,6 +108,8 @@ const List<RestaurantInfo> allRestaurantData = [
     dishes: ['Pwason Fre', 'Homard', 'Krab'],
     mode: DeliveryMode.deliveryOnly,
     deliveryZones: ['Carrefour', 'Gressier'],
+    deliveryFee: 250.0,
+    tasteCount: 3410,
   ),
 ];
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/cart_service.dart';
 import '../models/wallet_service.dart';
 import '../models/address_service.dart';
+import '../models/order_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
 
@@ -57,19 +58,85 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     _orderIds = {};
     int counter = 0;
-    final base = DateTime.now().millisecondsSinceEpoch % 8000 + 1000;
+    final seed = DateTime.now().millisecondsSinceEpoch;
+    final pickupOnlyNames = <String>[];
     for (final item in CartService.items) {
       final r = item['restaurant'] as String;
       if (!_orderIds.containsKey(r)) {
-        _orderIds[r] = 'ORD-${DateTime.now().year}-${base + counter * 17}';
+        final p1 = ((seed + counter * 1777) % 10000).toString().padLeft(4, '0');
+        final p2 = ((seed + counter * 3333 + 9999) % 10000).toString().padLeft(4, '0');
+        final p3 = ((seed + counter * 57 + 11) % 100).toString().padLeft(2, '0');
+        _orderIds[r] = 'sagaeat-$p1-$p2-$p3';
         counter++;
-        // Auto-set pickup for pickupOnly restaurants
         final info = findRestaurant(r);
         if (info != null && info.mode == DeliveryMode.pickupOnly) {
           _pickupRestaurants.add(r);
+          pickupOnlyNames.add(r);
         }
       }
     }
+    if (pickupOnlyNames.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showPickupOnlyInfo(pickupOnlyNames);
+      });
+    }
+  }
+
+  void _showPickupOnlyInfo(List<String> names) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: _kPrimary.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: const Icon(Icons.directions_walk_rounded,
+              color: _kPrimary, size: 32),
+        ),
+        title: const Text("Pickup sèlman",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "${names.join(' ak ')} ${names.length == 1 ? 'pa fè' : 'pa fè'} livrezon.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Ou oblije pase nan restoran an pou pran manje ou.\nEske w dakò ak sa?",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 14, height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context); // retounen nan panye
+            },
+            child: const Text("Non, retounen",
+                style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _kPrimary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("Wi, dakò",
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -89,14 +156,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   double get _adjustedDeliveryFee {
-    final nonPickup =
-        _byRestaurant.keys.where((r) => !_pickupRestaurants.contains(r)).length;
-    return nonPickup * _deliveryFeePerRestaurant;
+    double total = 0;
+    for (final r in _byRestaurant.keys) {
+      if (_pickupRestaurants.contains(r)) continue;
+      final info = findRestaurant(r);
+      total += info?.deliveryFee ?? _deliveryFeePerRestaurant;
+    }
+    return total;
   }
+
+  double get _serviceFee =>
+      (widget.subtotal + _adjustedDeliveryFee) * 0.06;
 
   double get _total =>
       widget.subtotal +
-      widget.serviceFee +
+      _serviceFee +
       _adjustedDeliveryFee -
       widget.couponDiscount;
 
@@ -107,7 +181,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return _newCommune;
   }
 
+  bool get _allPickup =>
+      _byRestaurant.keys.isNotEmpty &&
+      _byRestaurant.keys.every((r) => _pickupRestaurants.contains(r));
+
   bool get _addressValid {
+    if (_allPickup) return true;
     if (_addrIndex >= 0) return true;
     return _newDept != null &&
         _newCommune != null &&
@@ -147,6 +226,94 @@ class _PaymentScreenState extends State<PaymentScreen> {
       CartService.updateQuantity(i, 0);
     }
     setState(() {});
+  }
+
+  void _confirmPickupSelection(String restaurantName) {
+    final info = findRestaurant(restaurantName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: _kLight, shape: BoxShape.circle),
+          child: const Icon(Icons.directions_walk_rounded,
+              color: _kPrimary, size: 32),
+        ),
+        title: const Text("Pran sou plas?",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Ou chwazi pran manje a sou plas nan «$restaurantName».",
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(color: Colors.grey.shade700, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Restoran an pa ap livre manje a — se ou menm ki pral pase pran li.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  height: 1.4),
+            ),
+            if (info != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: _kLight,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        color: _kPrimary, size: 14),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        "${info.address}\n${info.commune}, ${info.departement}",
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: _kDark,
+                            height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text("Anile",
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _pickupRestaurants.add(restaurantName));
+              _checkPickupCommune(restaurantName);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: _kPrimary,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10))),
+            child: const Text("Wi, pran sou plas",
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   // Show popup when restaurant commune ≠ user commune (pickup)
@@ -302,12 +469,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   _buildCostSummary(),
                   const SizedBox(height: 24),
 
-                  _sectionTitle("Adres Livrezon"),
-                  const SizedBox(height: 10),
-                  _buildAddressSection(addresses),
-                  const SizedBox(height: 16),
-
-                  if (_hasDeliveryWarning) _buildWarning(),
+                  if (!_allPickup) ...[
+                    _sectionTitle("Adres Livrezon"),
+                    const SizedBox(height: 10),
+                    _buildAddressSection(addresses),
+                    const SizedBox(height: 16),
+                    if (_hasDeliveryWarning) _buildWarning(),
+                  ],
 
                   // Phone numbers
                   _sectionTitle("Nimewo Telefòn"),
@@ -346,7 +514,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // ── Order group ─────────────────────────────────────────────────
   Widget _buildOrderGroup(
       String restaurant, List<Map<String, dynamic>> items) {
-    final orderId = _orderIds[restaurant] ?? 'ORD-????';
+    final baseId = _orderIds[restaurant] ?? 'sagaeat-????-????-??';
+    final isPickupForId = _pickupRestaurants.contains(restaurant);
+    final orderId = '$baseId-${isPickupForId ? 'P' : 'D'}';
     final commune = _commune;
     final info = findRestaurant(restaurant);
     final isPickupOnly = info?.mode == DeliveryMode.pickupOnly;
@@ -455,14 +625,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   const SizedBox(height: 10),
                   GestureDetector(
                     onTap: () {
-                      setState(() {
-                        if (isPickup) {
-                          _pickupRestaurants.remove(restaurant);
-                        } else {
-                          _pickupRestaurants.add(restaurant);
-                          _checkPickupCommune(restaurant);
-                        }
-                      });
+                      if (isPickup) {
+                        setState(() =>
+                            _pickupRestaurants.remove(restaurant));
+                      } else {
+                        _confirmPickupSelection(restaurant);
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -622,14 +790,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Text("x$qty  ×  ${unitPrice.toStringAsFixed(0)} HTG",
                     style:
                         TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                if ((item['supplements'] as List?)?.isNotEmpty == true) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 3,
+                    children: (item['supplements'] as List)
+                        .map((s) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                  color: _kLight,
+                                  borderRadius: BorderRadius.circular(5)),
+                              child: Text('+ ${s['name']}',
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: _kPrimary,
+                                      fontWeight: FontWeight.w500)),
+                            ))
+                        .toList(),
+                  ),
+                ],
               ],
             ),
           ),
-          Text("${(unitPrice * qty).toStringAsFixed(0)} HTG",
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Colors.green.shade700)),
+          Text(
+            "${((unitPrice + (item['suppTotal'] as double? ?? 0.0)) * qty).toStringAsFixed(0)} HTG",
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.green.shade700)),
         ],
       ),
     );
@@ -643,9 +833,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ── Cost summary ────────────────────────────────────────────────
   Widget _buildCostSummary() {
-    final deliveryFee = _adjustedDeliveryFee;
-    final pickupCount = _pickupRestaurants.length;
-
     return Container(
       margin: const EdgeInsets.only(top: 4),
       padding: const EdgeInsets.all(16),
@@ -663,29 +850,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
         children: [
           _row("Soutotal", "${widget.subtotal.toStringAsFixed(0)} HTG"),
           const SizedBox(height: 6),
-          _row("Frè Sèvis", "${widget.serviceFee.toStringAsFixed(0)} HTG",
+          _row("Frè Sèvis", "${_serviceFee.toStringAsFixed(0)} HTG",
               color: Colors.grey.shade600),
-          const SizedBox(height: 6),
-          _row("Frè Livrezon", "${deliveryFee.toStringAsFixed(0)} HTG",
-              color: Colors.grey.shade600),
-          if (pickupCount > 0) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+          ..._byRestaurant.keys.map((r) {
+            final isPickup = _pickupRestaurants.contains(r);
+            final info = findRestaurant(r);
+            final fee = isPickup ? 0.0 : (info?.deliveryFee ?? _deliveryFeePerRestaurant);
+            return Column(
               children: [
-                const Icon(Icons.directions_walk_rounded,
-                    size: 12, color: _kPrimary),
-                const SizedBox(width: 4),
-                Text(
-                  "$pickupCount restoran pickup — livrezon anile",
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: _kPrimary,
-                      fontStyle: FontStyle.italic),
+                const SizedBox(height: 6),
+                _row(
+                  'Livrezon · $r',
+                  isPickup ? 'Pickup' : '${fee.toStringAsFixed(0)} HTG',
+                  color: isPickup ? _kPrimary : Colors.grey.shade600,
                 ),
               ],
-            ),
-          ],
+            );
+          }),
           if (widget.couponDiscount > 0) ...[
             const SizedBox(height: 6),
             _row("Koupon (${widget.couponCode ?? ''})",
@@ -1296,9 +1477,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (!_addressValid) return;
     final commune = _commune ?? '';
     final pickupList = _pickupRestaurants.toList();
-    final deliveryInfo = pickupList.isEmpty
-        ? "Livrezon → $commune"
-        : "Livrezon → $commune\nPickup: ${pickupList.join(', ')}";
+    final String deliveryInfo;
+    if (_allPickup) {
+      deliveryInfo = "Pickup — Pase pran manje ou nan restoran an.\nLè kòmand lan prè, n ap enfòme w.";
+    } else if (pickupList.isEmpty) {
+      deliveryInfo = "Livrezon → $commune\nLè kòmand lan prè n ap enfòme w.";
+    } else {
+      deliveryInfo = "Livrezon → $commune\nPickup: ${pickupList.join(', ')}\nLè kòmand lan prè n ap enfòme w.";
+    }
 
     showDialog(
       context: context,
@@ -1334,6 +1520,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               onPressed: () {
                 if (useWallet) WalletService.deduct(_total);
+                final byResto = _byRestaurant;
+                final now = DateTime.now();
+                byResto.forEach((restaurant, items) {
+                  final baseId = _orderIds[restaurant] ?? 'sagaeat-0000-0000-00';
+                  final isPickup = _pickupRestaurants.contains(restaurant);
+                  final orderId = '$baseId-${isPickup ? 'P' : 'D'}';
+                  final restoDeliveryFee =
+                      isPickup ? 0.0 : _deliveryFeePerRestaurant;
+                  final restoSubtotal = items.fold<double>(
+                      0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int));
+                  final restoServiceFee =
+                      (restoSubtotal + restoDeliveryFee) * 0.06;
+                  OrderService.add(OrderRecord(
+                    orderId: orderId,
+                    restaurant: restaurant,
+                    items: List<Map<String, dynamic>>.from(items),
+                    subtotal: restoSubtotal,
+                    serviceFee: restoServiceFee,
+                    deliveryFee: restoDeliveryFee,
+                    couponDiscount: 0,
+                    total: restoSubtotal + restoServiceFee + restoDeliveryFee,
+                    mode: isPickup ? 'pickup' : 'delivery',
+                    createdAt: now,
+                  ));
+                });
                 CartService.clear();
                 Navigator.popUntil(context, (r) => r.isFirst);
               },

@@ -490,10 +490,10 @@ class _DepositSheetState extends State<_DepositSheet> {
   void _submit(String method, Color color) {
     final raw = widget.amountCtrl.text.trim();
     final amount = double.tryParse(raw.replaceAll(',', '.'));
-    if (amount == null || amount <= 0) {
+    if (amount == null || amount < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Antre yon montan valid pou kontinye'),
+          content: Text('Montan minimòm pou depo se 10 HTG'),
           backgroundColor: Colors.red,
         ),
       );
@@ -563,21 +563,20 @@ class _DepositSheetState extends State<_DepositSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final screenH = MediaQuery.of(context).size.height;
+    final maxH = (screenH * 0.82 - bottom).clamp(240.0, screenH * 0.82);
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-        left: 20,
-        right: 20,
-        top: 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 24 + bottom),
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Center(
             child: Container(
               width: 36,
@@ -634,6 +633,7 @@ class _DepositSheetState extends State<_DepositSheet> {
                 onTap: () => _submit(m.name, m.color),
               ))),
         ],
+        ),
       ),
     );
   }
