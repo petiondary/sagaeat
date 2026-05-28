@@ -1084,7 +1084,7 @@ class _KycScreenState extends State<KycScreen>
             ),
             const SizedBox(height: 28),
             const Text(
-              "Analizy Done yo...",
+              "Analiz Done yo...",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,

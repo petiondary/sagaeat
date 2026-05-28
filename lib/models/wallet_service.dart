@@ -19,6 +19,26 @@ class WalletTransaction {
     this.orderId,
     this.peer,
   });
+
+  factory WalletTransaction.fromJson(Map<String, dynamic> j) => WalletTransaction(
+        id: j['id'].toString(),
+        type: j['type'] as String,
+        amount: (j['amount'] as num).toDouble(),
+        description: j['description'] as String,
+        date: DateTime.parse(j['created_at'] as String),
+        orderId: j['order_id']?.toString(),
+        peer: j['peer'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type,
+        'amount': amount,
+        'description': description,
+        'created_at': date.toIso8601String(),
+        if (orderId != null) 'order_id': orderId,
+        if (peer != null) 'peer': peer,
+      };
 }
 
 class WalletService {

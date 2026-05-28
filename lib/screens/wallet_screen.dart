@@ -958,7 +958,7 @@ class _GiftCardSheetState extends State<_GiftCardSheet>
             ),
             const SizedBox(height: 4),
             Text(
-              'Antre kòd ou eskanye QR gift card ou a',
+              'Antre kòd ou eskane QR gift card ou a',
               style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -969,7 +969,7 @@ class _GiftCardSheetState extends State<_GiftCardSheet>
                 Expanded(
                   child: _tabBtn(
                     icon: Icons.qr_code_scanner_rounded,
-                    label: 'Eskanye QR',
+                    label: 'Eskane QR',
                     selected: _tab == 0,
                     onTap: () => setState(() => _tab = 0),
                   ),

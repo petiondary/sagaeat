@@ -35,6 +35,52 @@ class OrderRecord {
     this.tsAnnule,
   });
 
+  factory OrderRecord.fromJson(Map<String, dynamic> j) => OrderRecord(
+        orderId: j['id'].toString(),
+        restaurant: j['restaurant'] as String? ?? '',
+        items: (j['items'] as List<dynamic>? ?? [])
+            .map((i) => Map<String, dynamic>.from(i as Map))
+            .toList(),
+        subtotal: (j['subtotal'] as num).toDouble(),
+        serviceFee: (j['service_fee'] as num? ?? 0).toDouble(),
+        deliveryFee: (j['delivery_fee'] as num? ?? 0).toDouble(),
+        couponDiscount: (j['coupon_discount'] as num? ?? 0).toDouble(),
+        total: (j['total'] as num).toDouble(),
+        mode: j['mode'] as String? ?? 'delivery',
+        createdAt: DateTime.parse(j['created_at'] as String),
+        status: j['status'] as String? ?? 'En cours',
+        tsPreparation: j['ts_preparation'] != null
+            ? DateTime.parse(j['ts_preparation'] as String)
+            : null,
+        tsLivraison: j['ts_livraison'] != null
+            ? DateTime.parse(j['ts_livraison'] as String)
+            : null,
+        tsLivre: j['ts_livre'] != null
+            ? DateTime.parse(j['ts_livre'] as String)
+            : null,
+        tsAnnule: j['ts_annule'] != null
+            ? DateTime.parse(j['ts_annule'] as String)
+            : null,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': orderId,
+        'restaurant': restaurant,
+        'items': items,
+        'subtotal': subtotal,
+        'service_fee': serviceFee,
+        'delivery_fee': deliveryFee,
+        'coupon_discount': couponDiscount,
+        'total': total,
+        'mode': mode,
+        'created_at': createdAt.toIso8601String(),
+        'status': status,
+        if (tsPreparation != null) 'ts_preparation': tsPreparation!.toIso8601String(),
+        if (tsLivraison != null) 'ts_livraison': tsLivraison!.toIso8601String(),
+        if (tsLivre != null) 'ts_livre': tsLivre!.toIso8601String(),
+        if (tsAnnule != null) 'ts_annule': tsAnnule!.toIso8601String(),
+      };
+
   String get itemSummary {
     if (items.isEmpty) return '';
     final first = items.first['name'] as String;

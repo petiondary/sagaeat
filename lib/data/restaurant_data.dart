@@ -31,6 +31,53 @@ class RestaurantInfo {
     this.tasteCount = 0,
   });
 
+  factory RestaurantInfo.fromJson(Map<String, dynamic> j) => RestaurantInfo(
+        name: j['name'] as String,
+        emoji: j['emoji'] as String? ?? '🏪',
+        address: j['address'] as String,
+        commune: j['commune'] as String,
+        departement: j['departement'] as String? ?? '',
+        desc: j['desc'] as String? ?? '',
+        rating: (j['rating'] as num? ?? 0).toDouble(),
+        deliveryTime: j['delivery_time'] as String? ?? '30-45 min',
+        dishes: (j['dishes'] as List<dynamic>? ?? []).cast<String>(),
+        mode: _modeFromString(j['mode'] as String? ?? 'both'),
+        deliveryZones: (j['delivery_zones'] as List<dynamic>? ?? []).cast<String>(),
+        deliveryFee: (j['delivery_fee'] as num? ?? 150).toDouble(),
+        tasteCount: j['taste_count'] as int? ?? 0,
+      );
+
+  static DeliveryMode _modeFromString(String s) {
+    switch (s) {
+      case 'pickup_only':
+        return DeliveryMode.pickupOnly;
+      case 'delivery_only':
+        return DeliveryMode.deliveryOnly;
+      default:
+        return DeliveryMode.both;
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'emoji': emoji,
+        'address': address,
+        'commune': commune,
+        'departement': departement,
+        'desc': desc,
+        'rating': rating,
+        'delivery_time': deliveryTime,
+        'dishes': dishes,
+        'mode': mode == DeliveryMode.pickupOnly
+            ? 'pickup_only'
+            : mode == DeliveryMode.deliveryOnly
+                ? 'delivery_only'
+                : 'both',
+        'delivery_zones': deliveryZones,
+        'delivery_fee': deliveryFee,
+        'taste_count': tasteCount,
+      };
+
   bool get offersPickup =>
       mode == DeliveryMode.both || mode == DeliveryMode.pickupOnly;
 

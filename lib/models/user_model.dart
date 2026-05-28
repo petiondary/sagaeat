@@ -14,6 +14,26 @@ class UserModel {
     required this.birthDate,
     required this.address,
   });
+
+  factory UserModel.fromJson(Map<String, dynamic> j) => UserModel(
+        id: j['id'].toString(),
+        name: j['name'] as String,
+        email: j['email'] as String,
+        phone: j['phone'] as String? ?? '',
+        birthDate: j['birth_date'] as String? ?? '',
+        address: j['address'] != null
+            ? UserAddress.fromJson(j['address'] as Map<String, dynamic>)
+            : UserAddress(department: '', commune: '', city: '', houseDetails: ''),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'birth_date': birthDate,
+        'address': address.toJson(),
+      };
 }
 
 class UserAddress {
@@ -32,4 +52,22 @@ class UserAddress {
     this.latitude,
     this.longitude,
   });
+
+  factory UserAddress.fromJson(Map<String, dynamic> j) => UserAddress(
+        department: j['department'] as String? ?? '',
+        commune: j['commune'] as String? ?? '',
+        city: j['city'] as String? ?? '',
+        houseDetails: j['house_details'] as String? ?? '',
+        latitude: (j['latitude'] as num?)?.toDouble(),
+        longitude: (j['longitude'] as num?)?.toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'department': department,
+        'commune': commune,
+        'city': city,
+        'house_details': houseDetails,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      };
 }

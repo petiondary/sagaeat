@@ -3756,7 +3756,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_, val, _) => SwitchListTile(
                       value: val,
                       onChanged: SecurityService.setBiometric,
-                      activeColor: _kPrimary,
+                      activeThumbColor: _kPrimary,
                       secondary: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
