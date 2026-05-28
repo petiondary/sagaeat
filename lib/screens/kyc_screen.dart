@@ -36,6 +36,7 @@ class _KycScreenState extends State<KycScreen>
 
   // Processing animation
   late AnimationController _spinCtrl;
+  bool _rewardPickerShown = false;
 
   final _picker = ImagePicker();
 
@@ -369,6 +370,78 @@ class _KycScreenState extends State<KycScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Reward incentive banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF92400E), _kPrimary, Color(0xFFD97706)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.card_giftcard_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Yon kado tann ou! 🎁",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "Konplète KYC → chwazi rèkonpans ou:",
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _rewardChip(
+                            Icons.local_shipping_rounded,
+                            "Livrezon Gratis",
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "oswa",
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _rewardChip(
+                            Icons.local_offer_rounded,
+                            "Remiz 6%",
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           Center(
             child: Container(
               padding: const EdgeInsets.all(24),
@@ -394,8 +467,8 @@ class _KycScreenState extends State<KycScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            "Pou rezon sekirite ak prevansyon fwod, nou dwe verifye idantite ou "
-            "anvan ou kapab pase kòmand. Pwosesis la pran 2-3 minit.",
+            "Pou rezon sekirite ak prevansyon fwod, verifye idantite ou "
+            "pou sekirize kont ou. Pwosesis la pran 2-3 minit sèlman.",
             style: TextStyle(
               color: Colors.grey.shade600,
               fontSize: 14,
@@ -1054,11 +1127,205 @@ class _KycScreenState extends State<KycScreen>
 
   // ── Step 5: Success ────────────────────────────────────────────
 
+  void _showRewardPicker() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF92400E), _kPrimary, Color(0xFFD97706)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.card_giftcard_rounded,
+                      color: Colors.white,
+                      size: 36,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Felisitasyon! 🎉",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    "KYC ou konfime. Chwazi rèkonpans ou:",
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _rewardOptionCard(
+                    icon: Icons.local_shipping_rounded,
+                    iconColor: const Color(0xFF0369A1),
+                    bgColor: const Color(0xFFE0F2FE),
+                    title: "Livrezon Gratis",
+                    subtitle: "Nou peye tout frè livrezon ou sou pwochen kòmand ou",
+                    onTap: () {
+                      KycService.claimReward('free_shipping');
+                      Navigator.pop(context);
+                      Navigator.pop(context, true);
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            "oswa",
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                      ],
+                    ),
+                  ),
+                  _rewardOptionCard(
+                    icon: Icons.local_offer_rounded,
+                    iconColor: const Color(0xFF15803D),
+                    bgColor: const Color(0xFFDCFCE7),
+                    title: "Remiz 6%",
+                    subtitle: "6% sou soutotal pwochen kòmand ou",
+                    onTap: () {
+                      KycService.claimReward('discount_6pct');
+                      Navigator.pop(context);
+                      Navigator.pop(context, true);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rewardChip(IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 13),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _rewardOptionCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: _kDark,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: _kPrimary,
+              ),
+            ],
+          ),
+        ),
+      );
+
   Widget _buildSuccess() {
     Future.delayed(const Duration(seconds: 3), () {
-      if (!mounted) return;
+      if (!mounted || _rewardPickerShown) return;
+      _rewardPickerShown = true;
       KycService.markVerified();
-      Navigator.pop(context, true);
+      _showRewardPicker();
     });
 
     return Center(

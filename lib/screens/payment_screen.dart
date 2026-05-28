@@ -6,6 +6,7 @@ import '../models/wallet_service.dart';
 import '../models/address_service.dart';
 import '../models/order_service.dart';
 import '../models/security_service.dart';
+import '../models/kyc_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
 
@@ -182,11 +183,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
   double get _serviceFee =>
       (_dynamicSubtotal + _adjustedDeliveryFee) * 0.06;
 
+  double get _kycDiscount {
+    if (!KycService.hasUnusedReward) return 0;
+    return switch (KycService.kycReward) {
+      'free_shipping' => _adjustedDeliveryFee,
+      'discount_6pct' => _dynamicSubtotal * 0.06,
+      _ => 0.0,
+    };
+  }
+
   double get _total =>
       _dynamicSubtotal +
       _serviceFee +
       _adjustedDeliveryFee -
-      widget.couponDiscount;
+      widget.couponDiscount -
+      _kycDiscount;
 
   String? get _commune {
     if (_addrIndex >= 0 && _addrIndex < AddressService.addresses.length) {
@@ -934,6 +945,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 "-${widget.couponDiscount.toStringAsFixed(0)} HTG",
                 color: Colors.green.shade700),
           ],
+          if (_kycDiscount > 0) ...[
+            const SizedBox(height: 6),
+            _row(
+              KycService.kycReward == 'free_shipping'
+                  ? "🎁 Rèkonpans KYC — Livrezon Gratis"
+                  : "🎁 Rèkonpans KYC — Remiz 6%",
+              "-${_kycDiscount.toStringAsFixed(0)} HTG",
+              color: const Color(0xFF0369A1),
+            ),
+          ],
           const Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
               child: Divider(height: 1)),
@@ -1638,6 +1659,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     createdAt: now,
                   ));
                 });
+                if (KycService.hasUnusedReward) KycService.useReward();
                 CartService.clear();
                 Navigator.popUntil(context, (r) => r.isFirst);
               },
