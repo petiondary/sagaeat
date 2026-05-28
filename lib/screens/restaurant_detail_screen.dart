@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/restaurant_data.dart';
+import '../models/restaurant_follow_service.dart';
 import 'product_description_screen.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
@@ -24,13 +25,14 @@ class RestaurantDetailScreen extends StatefulWidget {
 class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   int _reviewRating = 0;
   final _reviewCtrl = TextEditingController();
-  bool _isFollowing = false;
+  late bool _isFollowing;
   late int _tasteCount;
 
   @override
   void initState() {
     super.initState();
     _tasteCount = widget.restaurant.tasteCount;
+    _isFollowing = RestaurantFollowService.isFollowing(widget.restaurant.name);
   }
 
   // Demo gallery photos
@@ -173,7 +175,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _isFollowing = !_isFollowing;
+                    _isFollowing = RestaurantFollowService.toggle(
+                      widget.restaurant.name,
+                    );
                     _tasteCount += _isFollowing ? 1 : -1;
                   });
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(

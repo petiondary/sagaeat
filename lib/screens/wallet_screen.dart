@@ -4,6 +4,7 @@ import 'package:local_auth/local_auth.dart';
 import '../models/wallet_service.dart';
 import '../models/kyc_service.dart';
 import '../models/security_service.dart';
+import '../services/notification_service.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -713,6 +714,7 @@ class _DepositSheetState extends State<_DepositSheet> {
           ElevatedButton(
             onPressed: () {
               WalletService.topUp(amount, method);
+              NotificationService.depotFait(amount).ignore();
               Navigator.pop(ctx);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

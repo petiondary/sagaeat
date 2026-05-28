@@ -9,6 +9,7 @@ import '../models/security_service.dart';
 import '../models/kyc_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
+import '../services/notification_service.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
 const Color _kDark = Color(0xFF1C1917);
@@ -1658,6 +1659,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     mode: isPickup ? 'pickup' : 'delivery',
                     createdAt: now,
                   ));
+                  final firstItem = items.first;
+                  final qty = firstItem['quantity'] as int? ?? 1;
+                  final plat = firstItem['name'] as String? ?? '';
+                  final supps = (firstItem['supplements'] as List?)
+                      ?.map((s) => s['name'] as String? ?? '')
+                      .where((s) => s.isNotEmpty)
+                      .join(', ');
+                  NotificationService.orderEnCours(
+                    restoran: restaurant,
+                    quantite: qty,
+                    plat: plat,
+                    sipleman: supps?.isNotEmpty == true ? supps : null,
+                    mode: isPickup ? 'pickup' : 'delivery',
+                  ).ignore();
                 });
                 if (KycService.hasUnusedReward) KycService.useReward();
                 CartService.clear();

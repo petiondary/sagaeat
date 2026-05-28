@@ -15,6 +15,9 @@ import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
 import '../models/kyc_service.dart';
 import '../models/security_service.dart';
+import '../models/restaurant_follow_service.dart';
+import '../services/notification_service.dart';
+import '../services/permission_service.dart';
 import 'kyc_screen.dart';
 import 'auth_screen.dart';
 
@@ -81,6 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Search commune filter ──────────────────────────────────────
   bool _communeFilterActive = false;
+
+  // ── Permission states ──────────────────────────────────────────
+  bool _locGranted = false;
+  bool _camGranted = false;
+  bool _notifGranted = false;
 
   // Cache for OrderRecord → Map conversions (keeps mutations alive)
   final Map<String, Map<String, dynamic>> _orderMapCache = {};
@@ -458,6 +466,22 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
     });
     OrderService.countNotifier.addListener(_onNewOrder);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await PermissionService.requestAll();
+      await _checkPermissions();
+    });
+  }
+
+  Future<void> _checkPermissions() async {
+    final loc = await PermissionService.hasLocation;
+    final cam = await PermissionService.hasCamera;
+    final notif = await PermissionService.hasNotification;
+    if (!mounted) return;
+    setState(() {
+      _locGranted = loc;
+      _camGranted = cam;
+      _notifGranted = notif;
+    });
   }
 
   void _onNewOrder() => setState(() {});
@@ -474,60 +498,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // ── KYC guard ─────────────────────────────────────────────────
   void _verifyKycAndNavigate(Map<String, dynamic> product) {
-    if (!KycService.isVerified) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          icon: Container(
-            padding: const EdgeInsets.all(12),
-            decoration:
-                BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
-            child: Icon(Icons.gpp_maybe, color: Colors.red.shade700, size: 36),
-          ),
-          title: const Text("Verifikasyon KYC Obligatwa",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-              textAlign: TextAlign.center),
-          content: Text(
-            "Poutèt rezon sekirite an Ayiti, ou dwe verifye kont ou anvan ou kapab pase yon kòmand. Tanpri ale nan Pwofil ou pou soumèt pyès ou (CIN / NIF / Paspò).",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text("Anile",
-                    style: TextStyle(color: Colors.grey.shade600))),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: _kPrimary,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10))),
-              onPressed: () async {
-                Navigator.pop(context);
-                final verified = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(builder: (_) => const KycScreen()),
-                );
-                if (verified == true) setState(() {});
-              },
-              child: const Text("Fè KYC Kounye a",
-                  style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => ProductDescriptionScreen(product: product)),
-      );
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => ProductDescriptionScreen(product: product)),
+    );
   }
 
   // ── Body dispatcher ───────────────────────────────────────────
@@ -2698,6 +2674,223 @@ class _HomeScreenState extends State<HomeScreen> {
   // 4. PROFILE
   // ═══════════════════════════════════════════════════════════════
 
+  // ── Referral link ──────────────────────────────────────────────
+  String get _referralLink {
+    const name = 'Dary Sebastien Petion';
+    const birthDate = '1990-05-15'; // YYYY-MM-DD
+    final parts = birthDate.split('-');
+    final day = parts.length >= 3 ? parts[2] : '00';
+    final month = parts.length >= 2 ? parts[1] : '00';
+    return 'www.sagaeat.com/ref=${name.replaceAll(' ', '+')}+$day+$month';
+  }
+
+  void _copyReferralLink() {
+    Clipboard.setData(ClipboardData(text: 'https://$_referralLink'));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Lyen referans kopye! 📋'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget _buildReferralSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.purple.shade50, Colors.indigo.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.purple.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.link_rounded,
+                    color: Colors.purple.shade700, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Lyen Referans ou',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.purple.shade900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.purple.shade100),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _referralLink,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6B7280),
+                          letterSpacing: 0.2),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _copyReferralLink,
+                    child: Icon(Icons.copy_rounded,
+                        color: Colors.purple.shade600, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Pataje lyen sa a ak zanmi ou yo — fè yo rejwenn SagaEat!',
+              style:
+                  TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFollowedRestaurantsSection() {
+    return ValueListenableBuilder<int>(
+      valueListenable: RestaurantFollowService.countNotifier,
+      builder: (context, _, __) {
+        final followed = RestaurantFollowService.followedRestaurants;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.favorite_rounded,
+                      color: _kPrimary, size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Restoran ou swiv yo',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: _kDark),
+                  ),
+                  const Spacer(),
+                  if (followed.isNotEmpty)
+                    Text(
+                      '${followed.length}',
+                      style: TextStyle(
+                          color: Colors.grey.shade500, fontSize: 13),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (followed.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.favorite_border_rounded,
+                          color: Colors.grey.shade400, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Swiv restoran pou wè yo isit',
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 100,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: followed.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      final r = followed[i];
+                      final menuItems = allMenuItems
+                          .where((m) => m['restaurant'] == r.name)
+                          .toList();
+                      return GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RestaurantDetailScreen(
+                              restaurant: r,
+                              menuItems: menuItems,
+                            ),
+                          ),
+                        ),
+                        child: Container(
+                          width: 82,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border:
+                                Border.all(color: Colors.grey.shade200),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(r.emoji,
+                                  style:
+                                      const TextStyle(fontSize: 28)),
+                              const SizedBox(height: 4),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4),
+                                child: Text(
+                                  r.name,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildProfileContent() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -2797,77 +2990,110 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: KycService.isVerified
-                    ? Colors.green.shade50
-                    : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: KycService.isVerified
-                        ? Colors.green.shade200
-                        : Colors.red.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                      KycService.isVerified
-                          ? Icons.verified_user
-                          : Icons.gpp_bad,
-                      color: KycService.isVerified
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
-                      size: 28),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            child: KycService.isVerified
+                ? Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                            KycService.isVerified
-                                ? "KYC Apwouve ✓"
-                                : "KYC Pa Verifye",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: KycService.isVerified
-                                    ? Colors.green.shade900
-                                    : Colors.red.shade900)),
-                        Text(
-                            KycService.isVerified
-                                ? "Ou kapab pase kòmand lib."
-                                : "Soumèt pyès idantite w pou debloke.",
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600)),
+                        Icon(Icons.verified_user,
+                            color: Colors.green.shade700, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("KYC Apwouve ✓",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Colors.green.shade900)),
+                              Text(
+                                KycService.hasUnusedReward
+                                    ? "Rèkonpans ou aktif — ap aplike nan pwochen kòmand 🎁"
+                                    : "Idantite ou konfime avèk siksè.",
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFEF3C7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.card_giftcard_rounded,
+                              color: Color(0xFFB45309), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("Yon kado tann ou! 🎁",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF92400E))),
+                              const Text(
+                                "Fè KYC → Livrezon Gratis oswa Remiz 6%",
+                                style: TextStyle(
+                                    fontSize: 12, color: Color(0xFFB45309)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: _kPrimary,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                          onPressed: () async {
+                            final verified = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const KycScreen()),
+                            );
+                            if (verified == true) setState(() {});
+                          },
+                          child: const Text("Fè KYC",
+                              style:
+                                  TextStyle(color: Colors.white, fontSize: 12)),
+                        ),
                       ],
                     ),
                   ),
-                  if (!KycService.isVerified)
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade800,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                      onPressed: () async {
-                        final verified = await Navigator.push<bool>(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const KycScreen()),
-                        );
-                        if (verified == true) setState(() {});
-                      },
-                      child: const Text("Verifye",
-                          style: TextStyle(color: Colors.white, fontSize: 12)),
-                    ),
-                ],
-              ),
-            ),
           ),
+          const SizedBox(height: 20),
+          // ── Lyen Referans ───────────────────────────────────────
+          _buildReferralSection(),
+          const SizedBox(height: 20),
+          // ── Restoran Favori ────────────────────────────────────
+          _buildFollowedRestaurantsSection(),
           const SizedBox(height: 20),
           // ── Address management ──────────────────────────────────
           _buildAddressesSection(),
@@ -3610,6 +3836,60 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 24),
+          _buildSettingsGroup("Aksè Aplikasyon", [
+            _buildSettingsTile(
+              icon: Icons.location_on_outlined,
+              iconBg: Colors.blue.shade50,
+              iconColor: Colors.blue.shade600,
+              title: "Lokalizasyon",
+              subtitle: "Pou jwenn restoran ki toupre ou",
+              trailing: _locGranted
+                  ? Icon(Icons.check_circle_rounded,
+                      color: Colors.green.shade600)
+                  : TextButton(
+                      onPressed: () async {
+                        await PermissionService.requestLocation();
+                        await _checkPermissions();
+                      },
+                      child: const Text("Aktive"),
+                    ),
+            ),
+            _buildSettingsTile(
+              icon: Icons.camera_alt_outlined,
+              iconBg: Colors.orange.shade50,
+              iconColor: Colors.orange.shade700,
+              title: "Kamera & Foto",
+              subtitle: "Pou scanner gift card ak foto pwofil",
+              trailing: _camGranted
+                  ? Icon(Icons.check_circle_rounded,
+                      color: Colors.green.shade600)
+                  : TextButton(
+                      onPressed: () async {
+                        await PermissionService.requestCamera();
+                        await _checkPermissions();
+                      },
+                      child: const Text("Aktive"),
+                    ),
+            ),
+            _buildSettingsTile(
+              icon: Icons.notifications_active_outlined,
+              iconBg: Colors.purple.shade50,
+              iconColor: Colors.purple.shade700,
+              title: "Notifikasyon Push",
+              subtitle: "Alèt pou kòmand, pèman, ak pwomo",
+              trailing: _notifGranted
+                  ? Icon(Icons.check_circle_rounded,
+                      color: Colors.green.shade600)
+                  : TextButton(
+                      onPressed: () async {
+                        await PermissionService.requestNotification();
+                        await _checkPermissions();
+                      },
+                      child: const Text("Aktive"),
+                    ),
+            ),
+          ]),
+          const SizedBox(height: 8),
           _buildSettingsGroup("Preferans Aplikasyon", [
             _buildSettingsTile(
               icon: Icons.notifications_outlined,
@@ -3621,6 +3901,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   value: true,
                   activeThumbColor: _kPrimary,
                   onChanged: (_) {}),
+            ),
+            _buildSettingsTile(
+              icon: Icons.campaign_rounded,
+              iconBg: Colors.amber.shade50,
+              iconColor: Colors.amber.shade700,
+              title: "Tès Notifikasyon Pwomo",
+              subtitle: "Demo — simile yon mesaj pwomo admin",
+              trailing:
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () => NotificationService.codePromo(
+                'SagaEat spesyal pou ou! 🎁 Itilize kòd SAGA25 pou 25% rabè sou pwochen kòmand ou. Valid jiska minwi!',
+              ).ignore(),
             ),
           ]),
           const SizedBox(height: 8),
