@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'product_description_screen.dart';
@@ -2770,7 +2771,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildFollowedRestaurantsSection() {
     return ValueListenableBuilder<int>(
       valueListenable: RestaurantFollowService.countNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final followed = RestaurantFollowService.followedRestaurants;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2827,7 +2828,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
                     itemCount: followed.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, i) {
                       final r = followed[i];
                       final menuItems = allMenuItems
