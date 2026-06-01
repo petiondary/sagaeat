@@ -13,6 +13,13 @@ class UserAddress {
     required this.details,
   });
 
+  Map<String, dynamic> toJson() => {
+    'department': departement,
+    'commune': commune,
+    'city': details,
+    'house_details': details,
+  };
+
   UserAddress copyWith({
     String? name,
     String? departement,

@@ -125,6 +125,15 @@ class NotificationService {
     );
   }
 
+  // ── QR Code livrezon ──────────────────────────────────────────
+
+  static Future<void> qrSaved(String shortId) {
+    return _show(
+      'Kòd QR Livrezon Prè 📱',
+      'QR kòd pou kòmand #$shortId sove sou telefòn ou. Montre livreur a lè li rive — menm san entènèt',
+    );
+  }
+
   // ── Pwomo (super admin) ───────────────────────────────────────
 
   static Future<void> codePromo(String message) {

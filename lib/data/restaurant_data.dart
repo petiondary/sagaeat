@@ -1,6 +1,7 @@
 enum DeliveryMode { both, pickupOnly, deliveryOnly }
 
 class RestaurantInfo {
+  final int? id;
   final String name;
   final String emoji;
   final String address;
@@ -16,6 +17,7 @@ class RestaurantInfo {
   final int tasteCount;
 
   const RestaurantInfo({
+    this.id,
     required this.name,
     required this.emoji,
     required this.address,
@@ -32,16 +34,17 @@ class RestaurantInfo {
   });
 
   factory RestaurantInfo.fromJson(Map<String, dynamic> j) => RestaurantInfo(
+        id: j['id'] as int?,
         name: j['name'] as String,
         emoji: j['emoji'] as String? ?? '🏪',
-        address: j['address'] as String,
+        address: j['address'] as String? ?? '',
         commune: j['commune'] as String,
-        departement: j['departement'] as String? ?? '',
-        desc: j['desc'] as String? ?? '',
+        departement: j['department'] as String? ?? '',
+        desc: j['description'] as String? ?? '',
         rating: (j['rating'] as num? ?? 0).toDouble(),
         deliveryTime: j['delivery_time'] as String? ?? '30-45 min',
         dishes: (j['dishes'] as List<dynamic>? ?? []).cast<String>(),
-        mode: _modeFromString(j['mode'] as String? ?? 'both'),
+        mode: _modeFromString(j['delivery_mode'] as String? ?? 'both'),
         deliveryZones: (j['delivery_zones'] as List<dynamic>? ?? []).cast<String>(),
         deliveryFee: (j['delivery_fee'] as num? ?? 150).toDouble(),
         tasteCount: j['taste_count'] as int? ?? 0,
@@ -49,9 +52,9 @@ class RestaurantInfo {
 
   static DeliveryMode _modeFromString(String s) {
     switch (s) {
-      case 'pickup_only':
+      case 'pickupOnly':
         return DeliveryMode.pickupOnly;
-      case 'delivery_only':
+      case 'deliveryOnly':
         return DeliveryMode.deliveryOnly;
       default:
         return DeliveryMode.both;

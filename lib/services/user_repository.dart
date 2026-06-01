@@ -27,21 +27,21 @@ class UserRepository {
     return resp.data['photo_url'] as String;
   }
 
-  static Future<List<UserAddress>> getAddresses() async {
+  static Future<List<ProfileAddress>> getAddresses() async {
     final resp = await ApiClient.dio.get('/user/addresses');
     return (resp.data as List<dynamic>)
-        .map((a) => UserAddress.fromJson(a as Map<String, dynamic>))
+        .map((a) => ProfileAddress.fromJson(a as Map<String, dynamic>))
         .toList();
   }
 
-  static Future<UserAddress> createAddress(UserAddress address) async {
+  static Future<ProfileAddress> createAddress(ProfileAddress address) async {
     final resp = await ApiClient.dio.post('/user/addresses', data: address.toJson());
-    return UserAddress.fromJson(resp.data as Map<String, dynamic>);
+    return ProfileAddress.fromJson(resp.data as Map<String, dynamic>);
   }
 
-  static Future<UserAddress> updateAddress(String id, UserAddress address) async {
+  static Future<ProfileAddress> updateAddress(String id, ProfileAddress address) async {
     final resp = await ApiClient.dio.put('/user/addresses/$id', data: address.toJson());
-    return UserAddress.fromJson(resp.data as Map<String, dynamic>);
+    return ProfileAddress.fromJson(resp.data as Map<String, dynamic>);
   }
 
   static Future<void> deleteAddress(String id) async {

@@ -156,6 +156,169 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     ));
   }
 
+  void _showReportDialog() {
+    final reasons = [
+      'Manje pa t bon kalite',
+      'Sèvis malpoli / move atitid',
+      'Kòmand anreta anpil fwa',
+      'Imaj pa koresponn ak reyalite',
+      'Pwa / mezi pa kòrèk',
+      'Lòt rezon',
+    ];
+    String? selectedReason;
+    final otherCtrl = TextEditingController();
+    final ctx = context;
+
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (sheetCtx, setSt) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Icon(Icons.flag_rounded,
+                          color: Colors.red.shade600, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Rapòte Restoran",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16)),
+                        Text(
+                          widget.restaurant.name,
+                          style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text("Chwazi rezon rapò a:",
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontSize: 13)),
+                const SizedBox(height: 10),
+                ...reasons.map(
+                  (r) => GestureDetector(
+                    onTap: () => setSt(() => selectedReason = r),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 11),
+                      decoration: BoxDecoration(
+                        color: selectedReason == r
+                            ? Colors.red.shade50
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: selectedReason == r
+                                ? Colors.red.shade300
+                                : Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectedReason == r
+                                ? Icons.radio_button_checked_rounded
+                                : Icons.radio_button_off_rounded,
+                            color: selectedReason == r
+                                ? Colors.red.shade600
+                                : Colors.grey.shade400,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(r,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: selectedReason == r
+                                      ? Colors.red.shade700
+                                      : const Color(0xFF1C1917))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (selectedReason == 'Lòt rezon') ...[
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: otherCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                        hintText: "Eksplike rezon ou..."),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text("Voye Rapò",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: selectedReason == null
+                        ? null
+                        : () {
+                            Navigator.pop(sheetCtx);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      "Rapò voye. Ekip nou an pral revize l — mèsi! 🙏"),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).whenComplete(() => otherCtrl.dispose());
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = widget.restaurant;
@@ -560,7 +723,20 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
                   // Review list
                   ..._reviews.map((rev) => _buildReviewCard(rev)),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton.icon(
+                      icon: Icon(Icons.flag_outlined,
+                          size: 15, color: Colors.red.shade400),
+                      label: Text(
+                        "Rapòte Restoran",
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.red.shade400),
+                      ),
+                      onPressed: _showReportDialog,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),

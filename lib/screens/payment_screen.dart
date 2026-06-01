@@ -10,6 +10,9 @@ import '../models/kyc_service.dart';
 import '../data/haiti_geo.dart';
 import '../data/restaurant_data.dart';
 import '../services/notification_service.dart';
+import '../services/qr_service.dart';
+import '../services/order_repository.dart';
+import '../services/wallet_repository.dart';
 
 const Color _kPrimary = Color(0xFFB45309);
 const Color _kDark = Color(0xFF1C1917);
@@ -1633,50 +1636,102 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () {
-                if (useWallet) WalletService.deduct(_total);
+              onPressed: () async {
+                Navigator.pop(context); // fèmen dialog konfirmasyon an
                 final byResto = _byRestaurant;
                 final now = DateTime.now();
-                byResto.forEach((restaurant, items) {
-                  final baseId = _orderIds[restaurant] ?? 'sagaeat-0000-0000-00';
+                final payMethod = useWallet ? 'wallet' : 'moncash';
+
+                for (final entry in byResto.entries) {
+                  final restaurant = entry.key;
+                  final items = entry.value;
                   final isPickup = _pickupRestaurants.contains(restaurant);
-                  final orderId = '$baseId-${isPickup ? 'P' : 'D'}';
-                  final restoDeliveryFee =
-                      isPickup ? 0.0 : _deliveryFeePerRestaurant;
+                  final restoDeliveryFee = isPickup ? 0.0 : _deliveryFeePerRestaurant;
                   final restoSubtotal = items.fold<double>(
                       0, (s, i) => s + (i['unitPrice'] as double) * (i['quantity'] as int));
-                  final restoServiceFee =
-                      (restoSubtotal + restoDeliveryFee) * 0.06;
-                  OrderService.add(OrderRecord(
+                  final restoServiceFee = (restoSubtotal + restoDeliveryFee) * 0.06;
+                  final restoTotal = restoSubtotal + restoServiceFee + restoDeliveryFee;
+
+                  // Eseye API si restoran gen yon ID
+                  final restaurantId = items.first['restaurant_id'] as int?;
+                  OrderRecord? createdOrder;
+
+                  if (restaurantId != null) {
+                    try {
+                      final apiItems = items.map((i) => {
+                        'menu_item_id': i['menu_item_id'],
+                        'name': i['name'],
+                        'quantity': i['quantity'],
+                        'unit_price': i['unitPrice'],
+                        'supplements': i['supplements'] ?? [],
+                      }).toList();
+
+                      final addr = (_addrIndex >= 0 && _addrIndex < AddressService.addresses.length)
+                      ? AddressService.addresses[_addrIndex]
+                      : null;
+                      createdOrder = await OrderRepository.createOrder(
+                        restaurantId: restaurantId,
+                        items: apiItems,
+                        mode: isPickup ? 'pickup' : 'delivery',
+                        subtotal: restoSubtotal,
+                        serviceFee: restoServiceFee,
+                        deliveryFee: restoDeliveryFee,
+                        couponDiscount: widget.couponDiscount,
+                        total: restoTotal,
+                        phone1: _phone1Ctrl.text.trim().isNotEmpty
+                            ? _phone1Ctrl.text.trim()
+                            : '+509 0000-0000',
+                        phone2: _phone2Ctrl.text.trim().isNotEmpty
+                            ? _phone2Ctrl.text.trim()
+                            : null,
+                        deliveryAddress: (!isPickup && addr != null)
+                            ? addr.toJson()
+                            : null,
+                        couponCode: widget.couponCode,
+                        paymentMethod: payMethod,
+                      );
+                      if (useWallet) await WalletRepository.sync();
+                    } catch (_) {
+                      // Si API echwe, kreye in-memory kanmenm
+                    }
+                  }
+
+                  // Toujou ajoute in-memory (pou UI imedya)
+                  final orderId = createdOrder?.orderId ??
+                      '${_orderIds[restaurant] ?? 'sagaeat-0000-0000-00'}-${isPickup ? 'P' : 'D'}';
+                  OrderService.add(createdOrder ?? OrderRecord(
                     orderId: orderId,
                     restaurant: restaurant,
                     items: List<Map<String, dynamic>>.from(items),
                     subtotal: restoSubtotal,
                     serviceFee: restoServiceFee,
                     deliveryFee: restoDeliveryFee,
-                    couponDiscount: 0,
-                    total: restoSubtotal + restoServiceFee + restoDeliveryFee,
+                    couponDiscount: widget.couponDiscount,
+                    total: restoTotal,
                     mode: isPickup ? 'pickup' : 'delivery',
                     createdAt: now,
                   ));
+
+                  if (useWallet && createdOrder == null) WalletService.deduct(restoTotal);
+
                   final firstItem = items.first;
-                  final qty = firstItem['quantity'] as int? ?? 1;
-                  final plat = firstItem['name'] as String? ?? '';
-                  final supps = (firstItem['supplements'] as List?)
-                      ?.map((s) => s['name'] as String? ?? '')
-                      .where((s) => s.isNotEmpty)
-                      .join(', ');
                   NotificationService.orderEnCours(
                     restoran: restaurant,
-                    quantite: qty,
-                    plat: plat,
-                    sipleman: supps?.isNotEmpty == true ? supps : null,
+                    quantite: firstItem['quantity'] as int? ?? 1,
+                    plat: firstItem['name'] as String? ?? '',
+                    sipleman: null,
                     mode: isPickup ? 'pickup' : 'delivery',
                   ).ignore();
-                });
+                  QrService.saveQrImage(orderId).then((path) {
+                    if (path != null) {
+                      NotificationService.qrSaved(orderId.split('-').last).ignore();
+                    }
+                  });
+                }
+
                 if (KycService.hasUnusedReward) KycService.useReward();
                 CartService.clear();
-                Navigator.popUntil(context, (r) => r.isFirst);
+                if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
               },
               child: const Text("OK, Mèsi!",
                   style: TextStyle(

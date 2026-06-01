@@ -10,7 +10,7 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final resp = await ApiClient.dio.post('/auth/login', data: {
+    final resp = await ApiClient.dio.post('/auth/customer/login', data: {
       'email': email,
       'password': password,
     });
@@ -30,13 +30,24 @@ class AuthRepository {
     required String phone,
     required String password,
     required String birthDate,
+    String department = '',
+    String commune    = '',
+    String city        = '',
+    String houseDetails = '',
   }) async {
-    final resp = await ApiClient.dio.post('/auth/register', data: {
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'password': password,
+    final resp = await ApiClient.dio.post('/auth/customer/register', data: {
+      'name':       name,
+      'email':      email,
+      'phone':      phone,
+      'password':   password,
       'birth_date': birthDate,
+      if (department.isNotEmpty || commune.isNotEmpty)
+        'address': {
+          'department':    department,
+          'commune':       commune,
+          'city':          city,
+          'house_details': houseDetails,
+        },
     });
     final token = resp.data['token'] as String;
     await ApiClient.saveToken(token);
@@ -50,7 +61,7 @@ class AuthRepository {
 
   static Future<void> logout() async {
     try {
-      await ApiClient.dio.post('/auth/logout');
+      await ApiClient.dio.post('/auth/customer/logout');
     } on DioException {
       // Best-effort — clear locally regardless
     } finally {

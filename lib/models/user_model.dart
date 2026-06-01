@@ -1,10 +1,12 @@
 class UserModel {
   final String id;
-  final String name; // Lock nan pwofil la, pa ka modifye
+  final String name;
   final String email;
   final String phone;
   final String birthDate;
-  final UserAddress address;
+  final ProfileAddress address;
+  final String? referralCode;
+  final String? photo;
 
   UserModel({
     required this.id,
@@ -13,6 +15,8 @@ class UserModel {
     required this.phone,
     required this.birthDate,
     required this.address,
+    this.referralCode,
+    this.photo,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> j) => UserModel(
@@ -22,8 +26,10 @@ class UserModel {
         phone: j['phone'] as String? ?? '',
         birthDate: j['birth_date'] as String? ?? '',
         address: j['address'] != null
-            ? UserAddress.fromJson(j['address'] as Map<String, dynamic>)
-            : UserAddress(department: '', commune: '', city: '', houseDetails: ''),
+            ? ProfileAddress.fromJson(j['address'] as Map<String, dynamic>)
+            : ProfileAddress(department: '', commune: '', city: '', houseDetails: ''),
+        referralCode: j['referralCode'] as String?,
+        photo: j['photo'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -36,7 +42,7 @@ class UserModel {
       };
 }
 
-class UserAddress {
+class ProfileAddress {
   final String department;
   final String commune;
   final String city;
@@ -44,7 +50,7 @@ class UserAddress {
   final double? latitude;
   final double? longitude;
 
-  UserAddress({
+  ProfileAddress({
     required this.department,
     required this.commune,
     required this.city,
@@ -53,7 +59,7 @@ class UserAddress {
     this.longitude,
   });
 
-  factory UserAddress.fromJson(Map<String, dynamic> j) => UserAddress(
+  factory ProfileAddress.fromJson(Map<String, dynamic> j) => ProfileAddress(
         department: j['department'] as String? ?? '',
         commune: j['commune'] as String? ?? '',
         city: j['city'] as String? ?? '',

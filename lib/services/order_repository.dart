@@ -13,10 +13,11 @@ class OrderRepository {
     required double deliveryFee,
     required double couponDiscount,
     required double total,
-    Map<String, dynamic>? deliveryAddress,
-    String? phone1,
+    required String phone1,
     String? phone2,
+    Map<String, dynamic>? deliveryAddress,
     String? couponCode,
+    String paymentMethod = 'wallet',
   }) async {
     final resp = await ApiClient.dio.post('/orders', data: {
       'restaurant_id': restaurantId,
@@ -27,10 +28,11 @@ class OrderRepository {
       'delivery_fee': deliveryFee,
       'coupon_discount': couponDiscount,
       'total': total,
-      'delivery_address': ?deliveryAddress,
-      'phone1': ?phone1,
-      'phone2': ?phone2,
-      'coupon_code': ?couponCode,
+      'phone1': phone1,
+      'payment_method': paymentMethod,
+      if (phone2 != null) 'phone2': phone2,
+      if (deliveryAddress != null) 'delivery_address': deliveryAddress,
+      if (couponCode != null) 'coupon_code': couponCode,
     });
     return OrderRecord.fromJson(resp.data as Map<String, dynamic>);
   }

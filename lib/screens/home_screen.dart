@@ -19,6 +19,12 @@ import '../models/security_service.dart';
 import '../models/restaurant_follow_service.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
+import '../services/qr_service.dart';
+import '../services/user_repository.dart';
+import '../services/restaurant_repository.dart';
+import '../services/order_repository.dart';
+import '../services/wallet_repository.dart';
+import '../models/user_model.dart';
 import 'kyc_screen.dart';
 import 'auth_screen.dart';
 
@@ -36,6 +42,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // ── API state ──────────────────────────────────────────────────
+  UserModel? _user;
+  List<RestaurantInfo> _apiRestaurants = [];
+  List<Map<String, dynamic>> _apiMenuItems = [];
+  List<OrderRecord> _apiOrders = [];
+  bool _isLoadingData = false;
+
   int _currentIndex = 0;
   // ── Categories ─────────────────────────────────────────────────
   int _selectedCategory = 0;
@@ -427,17 +440,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Filtered menu getter ───────────────────────────────────────
   List<Map<String, dynamic>> get _filteredMenu {
-    if (_selectedCategory == 0) return allMenuItems;
+    final source = _apiMenuItems.isNotEmpty ? _apiMenuItems : allMenuItems;
+    if (_selectedCategory == 0) return source;
     final cat = _categories[_selectedCategory]["label"]!;
-    return allMenuItems.where((i) => i["category"] == cat).toList();
+    return source.where((i) => i["category"] == cat).toList();
   }
 
   // ── Sorted restaurants by user commune ────────────────────────
   List<RestaurantInfo> get _sortedRestaurants {
-    final userCommune = AddressService.addresses.isNotEmpty
-        ? AddressService.addresses.first.commune
-        : 'Carrefour';
-    final sorted = List<RestaurantInfo>.from(allRestaurantData);
+    final source = _apiRestaurants.isNotEmpty ? _apiRestaurants : allRestaurantData;
+    final userCommune = _user?.address.commune.isNotEmpty == true
+        ? _user!.address.commune
+        : (AddressService.addresses.isNotEmpty
+            ? AddressService.addresses.first.commune
+            : 'Carrefour');
+    final sorted = List<RestaurantInfo>.from(source);
     sorted.sort((a, b) {
       int priority(RestaurantInfo r) {
         if (r.commune == userCommune) return 0;
@@ -447,6 +464,56 @@ class _HomeScreenState extends State<HomeScreen> {
       return priority(a).compareTo(priority(b));
     });
     return sorted;
+  }
+
+  // ── Charge done API ────────────────────────────────────────────
+  Future<void> _loadData() async {
+    if (_isLoadingData) return;
+    setState(() => _isLoadingData = true);
+    try {
+      final user = await UserRepository.getProfile();
+      final restaurants = await RestaurantRepository.getRestaurants();
+      final orders = await OrderRepository.getOrders();
+      await WalletRepository.sync();
+
+      // Chaje meni pou chak restoran an paralèl
+      final allItems = <Map<String, dynamic>>[];
+      if (restaurants.isNotEmpty) {
+        final menus = await Future.wait(
+          restaurants
+              .where((r) => r.id != null)
+              .map((r) => RestaurantRepository.getMenu(r.id!)),
+        );
+        for (int i = 0; i < restaurants.length; i++) {
+          if (i >= menus.length) break;
+          for (final item in menus[i]) {
+            final cats = item['categories'] as List<dynamic>? ?? [];
+            allItems.add({
+              ...item,
+              'restaurant': restaurants[i].name,
+              'restaurant_id': restaurants[i].id,
+              'category': cats.isNotEmpty ? cats.first : '',
+              'desc': item['description'] ?? '',
+              'supplements': item['supplements'] ?? [],
+            });
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _apiRestaurants = restaurants;
+        _apiMenuItems = allItems;
+        _apiOrders = orders;
+        _phoneCtrl.text = user.phone.isNotEmpty ? user.phone : _phoneCtrl.text;
+        _emailCtrl.text = user.email;
+      });
+    } catch (_) {
+      // Kontinye montre done hardcodé si koneksyon echwe
+    } finally {
+      if (mounted) setState(() => _isLoadingData = false);
+    }
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────
@@ -470,6 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await PermissionService.requestAll();
       await _checkPermissions();
+      await _loadData();
     });
   }
 
@@ -592,9 +660,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        "Bonjou, Dary! 👋",
-                        style: TextStyle(
+                      Text(
+                        "Bonjou, ${_user?.name.split(' ').first ?? 'wi'}! 👋",
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold),
@@ -1145,8 +1213,8 @@ class _HomeScreenState extends State<HomeScreen> {
       modeBg = Colors.green.shade50;
     }
 
-    final menuItems =
-        allMenuItems.where((m) => m['restaurant'] == resto.name).toList();
+    final source = _apiMenuItems.isNotEmpty ? _apiMenuItems : allMenuItems;
+    final menuItems = source.where((m) => m['restaurant'] == resto.name).toList();
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -1759,15 +1827,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Map<String, dynamic>> get _allHistory {
+    // Kòmand lokal ki fèk kreye (pa ankò nan API)
     for (final order in OrderService.orders) {
       if (!_orderMapCache.containsKey(order.orderId)) {
         _orderMapCache[order.orderId] = _orderToMap(order);
       }
     }
-    return [
+    // Kòmand soti API (evite doublon ak kòmand lokal yo)
+    final localIds = OrderService.orders.map((o) => o.orderId).toSet();
+    final apiMaps = _apiOrders
+        .where((o) => !localIds.contains(o.orderId))
+        .map((o) => _orderToMap(o))
+        .toList();
+
+    final result = [
       ...OrderService.orders.map((o) => _orderMapCache[o.orderId]!),
-      ...transactionHistory,
+      ...apiMaps,
     ];
+    // Si pa gen anyen, montre hardcodé pou demo
+    if (result.isEmpty) return transactionHistory;
+    return result;
   }
 
   List<Map<String, dynamic>> get _filteredHistory {
@@ -2105,53 +2184,171 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showQrDialog(String orderId) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("QR Code Kòmand",
-            textAlign: TextAlign.center,
-            style:
-                TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(orderId,
+    final shortId = orderId.split('-').last;
+    bool saving = false;
+    bool saved = false;
+    final outerCtx = context;
+
+    showModalBottomSheet(
+      context: outerCtx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSt) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+              24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 16),
+              // Header
+              Row(
+                children: [
+                  const Icon(Icons.qr_code_rounded,
+                      color: _kPrimary, size: 22),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Kòd QR pou Livrezon ou",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // QR code
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12)
+                  ],
+                ),
+                child: QrImageView(
+                  data: QrService.qrContent(orderId),
+                  version: QrVersions.auto,
+                  size: 260,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Order ID
+              Text(
+                '#$shortId',
                 style: TextStyle(
                     color: Colors.grey.shade500,
                     fontSize: 12,
-                    letterSpacing: 0.5)),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200)),
-              child: QrImageView(
-                data: orderId,
-                version: QrVersions.auto,
-                size: 200,
-                backgroundColor: Colors.white,
+                    letterSpacing: 0.8),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "Montre QR code sa a bay livrè a pou li konfime livrezon an.",
-              textAlign: TextAlign.center,
-              style:
-                  TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Fèmen",
-                style: TextStyle(color: _kPrimary)),
+              const SizedBox(height: 8),
+              // Offline badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.wifi_off_rounded,
+                        size: 13, color: Colors.green.shade700),
+                    const SizedBox(width: 5),
+                    Text(
+                      "Travay menm san entènèt",
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Montre kòd sa a lè livreur a rive pou li konfime resepsyon an",
+                textAlign: TextAlign.center,
+                style:
+                    TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+              const SizedBox(height: 20),
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: Icon(
+                    saved
+                        ? Icons.check_circle_rounded
+                        : Icons.download_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    saved
+                        ? "Kòd QR Deja Sove ✓"
+                        : saving
+                            ? "Ap sove..."
+                            : "Sove sou Telefòn  💾",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        saved ? Colors.green.shade600 : _kPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: saving || saved
+                      ? null
+                      : () async {
+                          setSt(() => saving = true);
+                          final path =
+                              await QrService.saveQrImage(orderId);
+                          setSt(() {
+                            saving = false;
+                            saved = path != null;
+                          });
+                          if (outerCtx.mounted) {
+                            ScaffoldMessenger.of(outerCtx).showSnackBar(
+                              SnackBar(
+                                content: Text(path != null
+                                    ? "QR sove avèk siksè! 📱 Ou ka montre l san entènèt"
+                                    : "Erè — pa kapab sove QR a, eseye ankò"),
+                                backgroundColor: path != null
+                                    ? Colors.green.shade600
+                                    : Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2666,6 +2863,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
+          if (status == 'Livré') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.rate_review_rounded, size: 16),
+                label: const Text("Bay Feedback"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _kPrimary,
+                  side: BorderSide(
+                      color: _kPrimary.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                onPressed: () => _showFeedbackSheet(tx),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2677,8 +2893,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Referral link ──────────────────────────────────────────────
   String get _referralLink {
-    const name = 'Dary Sebastien Petion';
-    const birthDate = '1990-05-15'; // YYYY-MM-DD
+    if (_user?.referralCode != null) {
+      return 'www.sagaeat.com/ref=${_user!.referralCode}';
+    }
+    final name = _user?.name ?? 'SagaEat User';
+    final birthDate = _user?.birthDate ?? '';
     final parts = birthDate.split('-');
     final day = parts.length >= 3 ? parts[2] : '00';
     final month = parts.length >= 2 ? parts[1] : '00';
@@ -2974,15 +3193,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text("Dary Sebastien Petion",
-                        style: TextStyle(
+                    Text(_user?.name ?? 'Chaje...',
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    const Text("petiondary@gmail.com",
+                    Text(_user?.email ?? '',
                         style:
-                            TextStyle(color: Colors.white70, fontSize: 13)),
+                            const TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),
               ),
@@ -3104,7 +3323,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 _buildProfileField("Non & Prenon", Icons.person_outline,
-                    "Dary Sebastien Petion",
+                    _user?.name ?? '',
                     disabled: true),
                 const SizedBox(height: 12),
                 _buildProfileField(
@@ -3809,6 +4028,337 @@ class _HomeScreenState extends State<HomeScreen> {
   // 5. SETTINGS
   // ═══════════════════════════════════════════════════════════════
 
+  // ── Èd & Sipò ─────────────────────────────────────────────────
+  void _showHelpSheet() {
+    final ctx = context;
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.support_agent_rounded,
+                      color: Colors.green.shade700, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Èd & Sipò",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 17)),
+                    Text("Nou la pou ede w 7j/7",
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _contactTile(
+              icon: Icons.chat_rounded,
+              label: "WhatsApp",
+              value: "+509 3107 1890",
+              color: const Color(0xFF25D366),
+              copyText: '+50931071890',
+              onTap: () {
+                Clipboard.setData(
+                    const ClipboardData(text: '+50931071890'));
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text("Nimewo kopye! 📋")));
+              },
+            ),
+            const SizedBox(height: 10),
+            _contactTile(
+              icon: Icons.email_rounded,
+              label: "Email",
+              value: "contact@sagaeat.com",
+              color: Colors.blue,
+              copyText: 'contact@sagaeat.com',
+              onTap: () {
+                Clipboard.setData(
+                    const ClipboardData(text: 'contact@sagaeat.com'));
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text("Email kopye! 📋")));
+              },
+            ),
+            const SizedBox(height: 10),
+            _contactTile(
+              icon: Icons.language_rounded,
+              label: "Website",
+              value: "www.sagaeat.com",
+              color: _kPrimary,
+              copyText: 'https://www.sagaeat.com',
+              onTap: () {
+                Clipboard.setData(
+                    const ClipboardData(
+                        text: 'https://www.sagaeat.com'));
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text("Lyen kopye! 📋")));
+              },
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                "Orè sèvis: Lendi – Dimanch, 7h – 22h",
+                style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _contactTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required String copyText,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: _kDark)),
+                  Text(value,
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            Icon(Icons.copy_rounded,
+                color: Colors.grey.shade400, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Feedback apre kòmand ───────────────────────────────────────
+  void _showFeedbackSheet(Map<String, dynamic> tx) {
+    final restaurant = tx['restaurant'] as String? ?? '';
+    final items = tx['items'] as List? ?? [];
+    final firstItem = items.isNotEmpty
+        ? (items.first['name'] as String? ?? 'pla a')
+        : 'pla a';
+
+    int platRating = 0;
+    int restoRating = 0;
+    final platCtrl = TextEditingController();
+    final restoCtrl = TextEditingController();
+    final outerCtx = context;
+
+    showModalBottomSheet(
+      context: outerCtx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSt) => Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text("Kijan te pase? 🍽️",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text(
+                    "Feedback ou ede nou amelyore sèvis la",
+                    style: TextStyle(
+                        color: Colors.grey.shade500, fontSize: 13),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Feedback plat ──────────────────────────
+                  Text("Kijan ou jwenn $firstItem?",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(
+                      5,
+                      (i) => GestureDetector(
+                        onTap: () => setSt(() => platRating = i + 1),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Icon(
+                            i < platRating
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: Colors.amber,
+                            size: 34,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: platCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: "Kòmantè sou pla a (opsyonèl)",
+                      hintStyle: TextStyle(
+                          color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // ── Feedback restoran ──────────────────────
+                  Text("Kijan ou jwenn $restaurant?",
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(
+                      5,
+                      (i) => GestureDetector(
+                        onTap: () => setSt(() => restoRating = i + 1),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Icon(
+                            i < restoRating
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: Colors.amber,
+                            size: 34,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: restoCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText:
+                          "Kòmantè sou sèvis restoran an (opsyonèl)",
+                      hintStyle: TextStyle(
+                          color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Bouton voye ────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _kPrimary,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: platRating == 0 && restoRating == 0
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              if (outerCtx.mounted) {
+                                ScaffoldMessenger.of(outerCtx)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        "Mèsi pou feedback ou! 🙏 Sa ede nou amelyore sèvis la"),
+                                    backgroundColor:
+                                        Color(0xFF059669),
+                                  ),
+                                );
+                              }
+                            },
+                      child: const Text("Voye Feedback",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ).whenComplete(() {
+      platCtrl.dispose();
+      restoCtrl.dispose();
+    });
+  }
+
   Widget _buildSettingsContent() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -3936,6 +4486,7 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: "Kontakte nou si ou gen pwoblèm",
               trailing:
                   const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: _showHelpSheet,
             ),
             _buildSettingsTile(
               icon: Icons.exit_to_app,

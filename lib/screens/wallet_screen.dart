@@ -5,6 +5,7 @@ import '../models/wallet_service.dart';
 import '../models/kyc_service.dart';
 import '../models/security_service.dart';
 import '../services/notification_service.dart';
+import '../services/wallet_repository.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -16,13 +17,35 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   static const _kPrimary = Color(0xFFB45309);
 
+  List<WalletTransaction> _apiTransactions = [];
+  bool _loadingTx = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    if (_loadingTx) return;
+    setState(() => _loadingTx = true);
+    try {
+      await WalletRepository.sync();
+      final txs = await WalletRepository.getTransactions();
+      if (!mounted) return;
+      setState(() => _apiTransactions = txs);
+    } catch (_) {} finally {
+      if (mounted) setState(() => _loadingTx = false);
+    }
+  }
+
   // all | deposit | purchase | refund | gift_card | transfer_in | transfer_out
   String _filter = 'all';
   DateTime? _startDate;
   DateTime? _endDate;
 
   List<WalletTransaction> get _filtered {
-    final all = WalletService.history;
+    final all = _apiTransactions.isNotEmpty ? _apiTransactions : WalletService.history;
     return all.where((t) {
       if (_filter != 'all' && t.type != _filter) return false;
       if (_startDate != null) {
@@ -712,19 +735,39 @@ class _DepositSheetState extends State<_DepositSheet> {
             child: const Text('Anile', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
-              WalletService.topUp(amount, method);
-              NotificationService.depotFait(amount).ignore();
+            onPressed: () async {
               Navigator.pop(ctx);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${amount.toStringAsFixed(0)} HTG ajoute nan pòtmonè ou!',
+              try {
+                final methodKey = method.toLowerCase().contains('moncash')
+                    ? 'moncash'
+                    : method.toLowerCase().contains('natcash')
+                        ? 'natcash'
+                        : method.toLowerCase().contains('tranzak') ||
+                                method.toLowerCase().contains('kaypa')
+                            ? 'tranzak'
+                            : 'card';
+                await WalletRepository.deposit(amount, methodKey);
+                await WalletRepository.sync();
+                NotificationService.depotFait(amount).ignore();
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${amount.toStringAsFixed(0)} HTG ajoute nan pòtmonè ou!',
+                    ),
+                    backgroundColor: const Color(0xFF059669),
                   ),
-                  backgroundColor: const Color(0xFF059669),
-                ),
-              );
+                );
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Erè pandan depo a. Eseye ankò.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: color,

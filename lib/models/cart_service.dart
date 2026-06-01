@@ -33,6 +33,8 @@ class CartService {
       _items.add({
         'name': product['name'] ?? '',
         'restaurant': product['restaurant'] ?? '',
+        'restaurant_id': product['restaurant_id'],
+        'menu_item_id': product['id'],
         'image': product['image'] ?? '',
         'unitPrice': unitPrice,
         'suppTotal': suppTotal,
